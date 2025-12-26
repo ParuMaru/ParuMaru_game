@@ -45,7 +45,7 @@ class Entity {
 }
 
 class Hero extends Entity {
-    constructor(name, hp = 2, mp = 80) {
+    constructor(name, hp = 200, mp = 80) {
         super(name, hp, mp);
     }
 

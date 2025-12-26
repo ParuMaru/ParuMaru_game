@@ -44,6 +44,7 @@ class BattleManager {
         this.party.forEach((member, i) => {
             const hp = member.get_hp();
             const ratio = (hp / member.max_hp) * 100;
+            document.getElementById(`p${i}-name`).innerText = this.party[i].name;
             document.getElementById(`p${i}-hp-bar`).style.width = `${ratio}%`;
             document.getElementById(`p${i}-hp-text`).innerText = `HP: ${hp}`;
             document.getElementById(`p${i}-mp-text`).innerText = `MP: ${member.get_mp()}`;
@@ -216,7 +217,7 @@ class BattleManager {
                 const dmg = Math.floor(Math.random() * 21) + 20;
                 m.set_hp(-dmg);
                 const idx = this.party.indexOf(m);
-                const target_id =  `card-${idx}`;
+                const target_id = `card-${idx}`;
                 
                 this.effects.slashEffect(target_id);
                 this.effects.damagePopup(dmg, target_id);
