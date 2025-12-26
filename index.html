@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>JS Battle RPG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <div id="canvas-area">
+        <div id="enemy-name" style="color: #f1c40f; font-size: 24px; font-weight: bold; margin-bottom: 20px;">読み込み中</div>
+
+        <div class="enemy-sprite-container" id="enemy-target">
+            <img src="slime.png" id="enemy-sprite" alt="キングスライム">
+        </div>
+        <div class="hp-container">
+            <div id="enemy-hp-bar"></div>
+            <div id="enemy-hp-text">HP: 1000</div>
+        </div>
+    </div>
+
+    <div id="log"></div>
+
+    <div id="status-area">
+        <div class="member-card" id="card-0">
+            <div id="p0-name">勇者</div>
+            <div class="mini-hp-bar-bg"><div id="p0-hp-bar" class="mini-hp-bar"></div></div>
+            <div id="p0-hp-text">HP: 240</div>
+            <div id="p0-mp-text">MP: 80</div>
+        </div>
+        <div class="member-card" id="card-1">
+            <div id="p1-name">魔法使い</div>
+            <div class="mini-hp-bar-bg"><div id="p1-hp-bar" class="mini-hp-bar"></div></div>
+            <div id="p1-hp-text">HP: 180</div>
+            <div id="p1-mp-text">MP: 150</div>
+        </div>
+        <div class="member-card" id="card-2">
+            <div id="p2-name">癒し手</div>
+            <div class="mini-hp-bar-bg"><div id="p2-hp-bar" class="mini-hp-bar"></div></div>
+            <div id="p2-hp-text">HP: 200</div>
+            <div id="p2-mp-text">MP: 150</div>
+        </div>
+    </div>
+
+    <div id="command-area">
+        <div id="turn-label">準備中...</div>
+        <div class="btn-group">
+            <button id="btn-0">攻撃</button>
+            <button id="btn-1">-</button>
+            <button id="btn-2">-</button>
+            <button id="btn-3">-</button>
+        </div>
+    </div>
+
+    <script src="entities.js"></script>
+    <script src="effects.js"></script>
+    <script src="main.js"></script>
+</body>
+</html>
