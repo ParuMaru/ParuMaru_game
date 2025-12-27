@@ -1,18 +1,19 @@
 // --- クラス定義 (Entity, Hero, Wizard, Healer, Slime) ---
 class Entity {
     // 引数に共通ステータスを追加
-    constructor(name, hp, mp, atk, def, spd, rec) {
+    constructor(name, hp, mp, atk, def, matk, mdef, spd, rec) {
         this.name = name;
         this.max_hp = hp;
         this.max_mp = mp;
         this._hp = hp;
         this._mp = mp;
         
-        // 追加ステータス
-        this.atk = atk;
-        this.def = def;
-        this.spd = spd;
-        this.rec = rec;
+        this.atk = atk;   // 物理攻撃
+        this.def = def;   // 物理防御
+        this.matk = matk; // 魔法攻撃
+        this.mdef = mdef; // 魔法防御
+        this.spd = spd;   // 速さ
+        this.rec = rec;   // 回復力
 
         this.is_covering = false; // かばう中か
         this.buff_turns = 0;      // 攻撃力UPの残りターン
@@ -55,6 +56,8 @@ class Entity {
 
     // healを共通化。自分のrecを使用
     heal(target) {
+        const COST = 15;
+        this.set_mp(-COST)
         // 基本回復量: 回復力の 0.9 ～ 1.1 倍
         let heal_val = Math.floor(this.rec * (0.9 + Math.random() * 0.2));
         
@@ -80,8 +83,8 @@ class Entity {
 
 class Hero extends Entity {
     constructor(name) {
-            // 名前, HP, MP, ATK, DEF, SPD, REC
-        super(name, 240, 80, 50, 45, 30, 25);
+            // 名前, HP, MP, ATK, DEF, MATK, MDEF, SPD, REC
+        super(name, 240, 80, 50, 45, 20, 30, 30, 25);
     }
     
     skill_cover() {
@@ -111,30 +114,33 @@ class Hero extends Entity {
 
 class Wizard extends Entity {
     constructor(name) {
-        super(name, 180, 100, 25, 20, 50, 15);
+        super(name, 180, 150, 20, 20, 60, 50, 50, 15);
     }
 
     magic_attack(target) {
-    // 魔法攻撃の基本威力: 攻撃力の2.5倍 + 0～19の乱数
-    let damage = Math.floor(this.atk * 2.5 + (Math.random() * 20));
+        const COST = 20;
+        if (this.get_mp() < COST) return 0;
 
-    // ★鼓舞バフの効果: 1.25倍に統一（物理・魔法両方に恩恵がある設定）
-    if (this.buff_turns > 0) {
-        damage = Math.floor(damage * 1.25);
-    }
+        this.set_mp(-COST);
+        
+        // 自分の matk と 相手の mdef で計算
+        let damage = Math.floor(this.matk * 1.5 + (Math.random() * 20));
+        
+        if (this.buff_turns > 0) {
+            damage = Math.floor(damage * 1.25);
+        }
 
-    if (this.get_mp() >= 15) {
-        target.set_hp(-damage);
-        this.set_mp(-15);
-        return damage;
+        // 魔法防御で減算（魔法は通りやすいよう、防御の影響を少し弱めに調整）
+        let final_dmg = Math.max(1, damage - Math.floor(target.mdef / 3));
+        
+        target.set_hp(-final_dmg);
+        return final_dmg;
     }
-    return 0; // MP不足
-}
 }
 
 class Healer extends Entity {
     constructor(name) {
-        super(name, 200, 120, 30, 25, 35, 75);
+        super(name, 200, 150, 25, 25, 40, 60, 35, 75);
     }
     // healは親クラスの共通処理を使うため削除
 
@@ -156,7 +162,7 @@ class Healer extends Entity {
 
 class Slime extends Entity {
     constructor(name) {
-        super(name, 1000, 0, 60, 30, 20, 40);
+        super(name, 1000, 0, 70, 40, 40, 35, 20, 40);
     }
     // attackは親クラスの共通処理を使うため削除
 }

@@ -38,7 +38,7 @@ class EffectManager {
         const el = document.getElementById(id);
         if (el) {
             el.style.animation = 'none';
-            el.offsetHeight; // リフローを強制してアニメーションを再トリガー
+            void el.offsetHeight; // リフローを強制してアニメーションを再トリガー
             el.style.animation = 'shake 0.3s';
         }
     }
@@ -86,12 +86,27 @@ class EffectManager {
         if (!target) return; // IDが見つからない場合のエラー防止を追加
 
         target.style.animation = 'none'; // 一度リセット
-        target.offsetHeight; // リフロー
+        void target.offsetHeight; // リフロー
         target.style.animation = 'resurrectionFlash 1s ease-out';
         
         // アニメーションが終わったらクリア
         setTimeout(() => {
             if (target) target.style.animation = '';
         }, 1000);
+    }
+
+
+    enemyDeath(targetId) {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+        
+        // 震えながら白く光り、消えていくアニメーション
+        target.style.transition = "all 2.0s ease-out";
+        target.style.filter = "brightness(5) contrast(1.2) blur(2px)";
+        target.style.opacity = "0";
+        target.style.transform = "scale(1.2) translateY(-20px)";
+        
+        // 画面全体を一瞬白くフラッシュさせる
+        this.flash("rgba(255, 255, 255, 0.5)");
     }
 }

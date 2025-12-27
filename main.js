@@ -12,7 +12,7 @@ class BattleManager {
         
         this.items = [
             { id: "potion", name: "ポーション", count: 3, effect: 50, description: "HPを50回復" },
-            { id: "ether", name: "エーテル", count: 1, effect: 30, description: "MPを30回復" },
+            { id: "ether", name: "エーテル", count: 2, effect: 30, description: "MPを30回復" },
             { id: "leaf", name: "世界樹の葉", count: 1, effect: 0.5, description: "仲間一人をHP50%で蘇生" }
 ];
 
@@ -104,10 +104,27 @@ class BattleManager {
 
     next_player_step() {
         const member = this.party[this.current_turn_index];
+        
+        //勝利演出
         if (!this.slime.is_alive()) {
-            this.add_log("勝利！キングスライムを討伐した！", "#f1c40f", true);
-            alert("勝利！キングスライムを討伐した！");
-            location.reload();
+            this.hide_all_command_btns();
+            document.getElementById('turn-label').innerText = "VICTORY!!";
+
+        // effects.js のメソッドを実行
+            this.effects.enemyDeath('enemy-sprite');
+
+            this.add_log(`★ ${this.slime.name}を討伐した！`, "#f1c40f", true);
+        
+
+            setTimeout(() => {
+                this.add_log("平和が訪れた...", "#ecf0f1");
+            
+                setTimeout(() => {
+                    if(confirm("もう一度戦いますか？")) {
+                        location.reload();
+                    }
+                }, 500);
+            }, 1000);
             return;
         }
     
@@ -120,12 +137,10 @@ class BattleManager {
             this.current_turn_index += 1;
             this.next_player_step();
             return;
-        }
-        
+        }   
         if (member && member.is_alive() && member.buff_turns > 0) {
         member.buff_turns--;
-    }
-        
+    }     
         this.setup_command_buttons(member);
     }
     
@@ -150,17 +165,17 @@ class BattleManager {
             this.show_btn(2, "かばう(10)", "#3498db", () => this.execute_cover(), can_cover);
 
         } else if (member instanceof Wizard) {
-            // 魔法使い：1.魔法(15) / 2.瞑想(0)
-            const can_use = member.get_mp() >= 15;
-            this.show_btn(1, "魔法(15MP)", "#2980b9", () => this.execute_action("magic"), can_use);
+            // 魔法使い：1.魔法(20) / 2.瞑想(0)
+            const can_use = member.get_mp() >= 20;
+            this.show_btn(1, "魔法(20MP)", "#2980b9", () => this.execute_action("magic"), can_use);
             this.show_btn(2, "瞑想", "#9b59b6", () => this.execute_meditation());
 
         } else if (member instanceof Healer) {
-            // ヒーラー：1.ヒール(10) / 2.蘇生(40)
-            const can_heal = member.get_mp() >= 10;
+            // ヒーラー：1.ヒール(15) / 2.蘇生(40)
+            const can_heal = member.get_mp() >= 15;
         const can_res = member.get_mp() >= 40; 
             
-        this.show_btn(1, "ヒール(10MP)", "#27ae60", () => this.select_target("heal"), can_heal);
+        this.show_btn(1, "ヒール(15MP)", "#27ae60", () => this.select_target("heal"), can_heal);
 
             if (can_res) {
                 // MPが40以上ある場合：通常の蘇生魔法
@@ -168,7 +183,7 @@ class BattleManager {
             } else {
                 // MPが足りない場合：「命の代償」としてボタンを有効化（true）して表示
             // これにより、MPがなくても自分の命と引き換えに蘇生ができる
-                this.show_btn(2, "命の代償", "#e74c3c", () => this.select_target("resurrection"), true);
+                this.show_btn(2, "命の代償", "#ff1800", () => this.select_target("resurrection"), true);
             }
         }
 
@@ -226,7 +241,6 @@ class BattleManager {
         
         const member = this.party[this.current_turn_index];
         const h_val = member.heal(target);
-        member.set_mp(-10);
     
         // 対象(target)がパーティの何番目かを探す
         const targetIdx = this.party.indexOf(target);
