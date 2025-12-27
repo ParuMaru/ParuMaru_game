@@ -44,7 +44,7 @@ body { background-color: #2c3e50; color: white; font-family: "MS Gothic", sans-s
 #log { width: 570px; height: 200px; background: #1a252f; margin: 15px 0; padding: 10px; overflow-y: auto; border: 1px solid #34495e; font-size: 14px; display: flex; flex-direction: column-reverse; }
         
 /* ステータスエリア */
-#status-area { width: 600px; display: flex; justify-content: space-around; background: #2c3e50; padding: 10px 0; border: 1px solid #ecf0f1; }
+#status-area { width: 600px; display: flex; justify-content: space-around; background: #2c3e50; padding: 40px 0 10px 0; border: 1px solid #ecf0f1; }
 .member-card { 
     width: 180px; 
     text-align: center; 
@@ -53,6 +53,7 @@ body { background-color: #2c3e50; color: white; font-family: "MS Gothic", sans-s
     border-radius: 5px; 
     position: relative; /* エフェクトの基準点にする */
     overflow: visible;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
 }
 .mini-hp-bar-bg { width: 140px; height: 10px; background: #7f8c8d; margin: 5px auto; }
 .mini-hp-bar { width: 100%; height: 100%; background: #2ecc71; transition: width 0.3s; }
@@ -252,7 +253,7 @@ button:disabled { background-color: #7f8c8d !important; cursor: not-allowed; }
     75% { transform: translateX(10px); }
 }
 
-//のしかかりの揺れ
+/*のしかかりの揺れ*/
 @keyframes heavyShake {
     0% { transform: translateY(0); }
     25% { transform: translateY(15px); }
@@ -264,3 +265,30 @@ button:disabled { background-color: #7f8c8d !important; cursor: not-allowed; }
 .heavy-shake {
     animation: heavyShake 0.4s ease-in-out;
 }
+
+.active-member {
+    transform: translateY(-30px) ;
+    border-color: #f1c40f !important;
+    box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
+    transition: transform 0.3s;
+    z-index: 100;
+}
+
+.status-effects {
+    margin-top: 5px;
+    height: 24px;
+    display: flex;
+    gap: 5px;
+    justify-content: center;
+}
+
+.badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: bold;
+    color: white;
+}
+
+.badge-atk { background-color: #f1c40f; border: 1px solid #d4ac0d; } /* 攻撃UPは金 */
+.badge-cover { background-color: #3498db; border: 1px solid #2980b9; } /* かばうは青 */
