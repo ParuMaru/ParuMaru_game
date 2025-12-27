@@ -48,8 +48,7 @@ class Entity {
     }
 
     // 防御力による減算（最低1ダメージ）
-    let final_dmg = Math.max(1, damage - Math.floor(target.def / 2));
-    
+    let final_dmg = Math.max(1, damage - Math.floor(target.def / 2));   
     target.set_hp(-final_dmg);
     return [final_dmg, is_critical];
 }
@@ -81,8 +80,8 @@ class Entity {
 
 class Hero extends Entity {
     constructor(name) {
-        // 名前, HP, MP, ATK, DEF, SPD, REC
-        super(name, 220, 80, 50, 45, 30, 25);
+            // 名前, HP, MP, ATK, DEF, SPD, REC
+        super(name, 240, 80, 50, 45, 30, 25);
     }
     
     skill_cover() {
@@ -112,7 +111,7 @@ class Hero extends Entity {
 
 class Wizard extends Entity {
     constructor(name) {
-        super(name, 180, 150, 25, 20, 50, 15);
+        super(name, 180, 100, 25, 20, 50, 15);
     }
 
     magic_attack(target) {
@@ -135,7 +134,7 @@ class Wizard extends Entity {
 
 class Healer extends Entity {
     constructor(name) {
-        super(name, 200, 150, 30, 25, 35, 75);
+        super(name, 200, 120, 30, 25, 35, 75);
     }
     // healは親クラスの共通処理を使うため削除
 

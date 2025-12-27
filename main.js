@@ -50,33 +50,45 @@ class BattleManager {
         // 味方のステータス更新
         this.party.forEach((member, i) => {
             const hp = member.get_hp();
-            const ratio = (hp / member.max_hp) * 100;
+            const mp = member.get_mp();
+            const hp_ratio = (hp / member.max_hp) * 100;
+            const mp_ratio = (mp / member.max_mp) * 100;
             document.getElementById(`p${i}-name`).innerText = member.name;
-            document.getElementById(`p${i}-hp-bar`).style.width = `${ratio}%`;
+            document.getElementById(`p${i}-hp-bar`).style.width = `${hp_ratio}%`;
+            document.getElementById(`p${i}-mp-bar`).style.width = `${mp_ratio}%`;
             document.getElementById(`p${i}-hp-text`).innerText = `HP: ${hp}`;
-            document.getElementById(`p${i}-mp-text`).innerText = `MP: ${member.get_mp()}`;
+            document.getElementById(`p${i}-mp-text`).innerText = `MP: ${mp}`;
         
             // --- ★追加：バフ・状態アイコンの更新 ---
             const statusElem = document.getElementById(`p${i}-status`);
             if (statusElem) {
                 statusElem.innerHTML = ""; // 一旦リセット
                 
-                // 攻撃力UPバッジ
-                if (member.buff_turns > 0) {
-                    const atkBadge = document.createElement('span');
-                    atkBadge.className = "badge badge-atk";
-                    atkBadge.innerText = `ATK ▲${member.buff_turns}`;
-                    statusElem.appendChild(atkBadge);
-                }
+                //生きてる場合のみバッジを表示
+                if (member.is_alive()) {
+                    // 攻撃力UPバッジ
+                    if (member.buff_turns > 0) {
+                        const atkBadge = document.createElement('span');
+                        atkBadge.className = "badge badge-atk";
+                        atkBadge.innerText = `ATK ▲${member.buff_turns}`;
+                        statusElem.appendChild(atkBadge);
+                    }
                 
-                // かばうバッジ
-                if (member.is_covering) {
-                    const coverBadge = document.createElement('span');
-                    coverBadge.className = "badge badge-cover";
-                    coverBadge.innerText = "かばう";
-                    statusElem.appendChild(coverBadge);
+                    // かばうバッジ
+                    if (member.is_covering) {
+                        const coverBadge = document.createElement('span');
+                        coverBadge.className = "badge badge-cover";
+                        coverBadge.innerText = "かばう";
+                        statusElem.appendChild(coverBadge);
+                    }
+                }else{
+                    // キャラクターが死んでいる場合、データ上のバフもリセット
+                    member.buff_turns = 0;
+                    member.is_covering = false;
                 }
+                    
             }
+            
             // ------------------------------------
 
             const nameElem = document.getElementById(`p${i}-name`);
@@ -98,25 +110,25 @@ class BattleManager {
             location.reload();
             return;
         }
-   
-     
+    
         if (this.current_turn_index >= this.party.length) {
             this.current_turn_index = 0;
             setTimeout(() => this.slime_turn(), 800);
             return;
-        }
-
-    
+        }   
         if (!member.is_alive()) {
             this.current_turn_index += 1;
             this.next_player_step();
             return;
         }
-
+        
+        if (member && member.is_alive() && member.buff_turns > 0) {
+        member.buff_turns--;
+    }
+        
         this.setup_command_buttons(member);
     }
-
-
+    
         setup_command_buttons(member) {
             // 誰のターンか分かりやすくカードを光らせる
             this.party.forEach((_, i) => document.getElementById(`card-${i}`).classList.remove('active-member'));
@@ -146,9 +158,18 @@ class BattleManager {
         } else if (member instanceof Healer) {
             // ヒーラー：1.ヒール(10) / 2.蘇生(40)
             const can_heal = member.get_mp() >= 10;
-            const can_res = member.get_mp() >= 40; // 蘇生に必要なMPを40と仮定
-            this.show_btn(1, "ヒール(10MP)", "#27ae60", () => this.select_target("heal"), can_heal);
-            this.show_btn(2, "蘇生(40MP)", "#8e44ad", () => this.select_target("resurrection"), can_res);
+        const can_res = member.get_mp() >= 40; 
+            
+        this.show_btn(1, "ヒール(10MP)", "#27ae60", () => this.select_target("heal"), can_heal);
+
+            if (can_res) {
+                // MPが40以上ある場合：通常の蘇生魔法
+                this.show_btn(2, "蘇生(40MP)", "#8e44ad", () => this.select_target("resurrection"), true);
+            } else {
+                // MPが足りない場合：「命の代償」としてボタンを有効化（true）して表示
+            // これにより、MPがなくても自分の命と引き換えに蘇生ができる
+                this.show_btn(2, "命の代償", "#e74c3c", () => this.select_target("resurrection"), true);
+            }
         }
 
         // 3番: どうぐ（常に有効）
@@ -365,11 +386,6 @@ class BattleManager {
     
 
     finish_turn() {
-        // 行動したキャラのバフを1減らす
-        const member = this.party[this.current_turn_index];
-        if (member && member.buff_turns > 0) {
-            member.buff_turns--;
-        }
         this.update_display();
         this.current_turn_index += 1;
         setTimeout(() => this.next_player_step(), 200);
