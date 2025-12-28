@@ -24,7 +24,7 @@ class BattleManager {
         window.addEventListener('keydown', (e) => {
             if (e.key === 'b' || e.key === 'B') {this.debug_damage_enemies();}
             if (e.key === 'p' || e.key === 'P') {this.debug_damage_party();}
-
+            if (e.key === 'm' || e.key === 'M') {this.debug_mp_zero();}
         });
     }
     
@@ -39,6 +39,15 @@ class BattleManager {
         }
     });
         
+        this.update_display(); // 分裂判定なども自動で走る
+    }
+    
+    debug_mp_zero() {
+        this.add_log("--- デバッグ: MP:0 ---", "#ff4757");
+        this.party.forEach((m, i) => {
+        m.set_mp(-m.get_mp()); // 残りMP 0 にする
+    });
+
         this.update_display(); // 分裂判定なども自動で走る
     }
 
@@ -61,9 +70,9 @@ class BattleManager {
     }
 
     update_display() {
-    const targetArea = document.getElementById('enemy-target');
-    targetArea.innerHTML = ""; 
-    this.enemies.forEach((enemy, i) => {
+        const targetArea = document.getElementById('enemy-target');
+        targetArea.innerHTML = ""; 
+        this.enemies.forEach((enemy, i) => {
         const unit = document.createElement('div');
         unit.className = "enemy-unit";
         
@@ -88,6 +97,8 @@ class BattleManager {
         
         // --- 味方のステータス表示 (バッジの色を完全復元) ---
         this.party.forEach((member, i) => {
+            const nameElem = document.getElementById(`p${i}-name`);
+            if (nameElem) nameElem.innerText = member.name;
             const hp_ratio = (member.get_hp() / member.max_hp) * 100;
             const mp_ratio = (member.get_mp() / member.max_mp) * 100;
             document.getElementById(`p${i}-hp-bar`).style.width = `${hp_ratio}%`;
@@ -105,6 +116,9 @@ class BattleManager {
                     }
                     if (member.is_covering) {
                         statusElem.innerHTML += `<span class="badge" style="background-color: #3498db; color: white;">かばう</span>`;
+                    }
+                    if (member.regen_turns > 0) {
+                        statusElem.innerHTML += `<span class="badge" style="background-color: #2ecc71; color: white;">いのり ${member.regen_turns}</span>`;
                     }
                 }
             }
@@ -142,14 +156,7 @@ class BattleManager {
             this.next_player_step();
             return;
         }
-        if (member.buff_turns > 0) {
-            member.buff_turns--;
-            // バフが切れたら通知して即座に表示を更新
-            if (member.buff_turns === 0) {
-                this.add_log(` > ${member.name}の攻撃力アップが切れた`, "#bdc3c7");
-                this.update_display(); 
-            }
-        }
+        
         
         this.setup_command_buttons(member);
     }
@@ -171,42 +178,96 @@ class BattleManager {
             this.show_btn(1, "勇者の鼓舞(15)", "#f1c40f", () => this.execute_hero_skill(), member.get_mp() >= 15);
             this.show_btn(2, "かばう(10)", "#3498db", () => this.execute_cover(), member.get_mp() >= 10);
         } else if (member instanceof Wizard) {
-            this.show_btn(1, "魔法(20)", "#2980b9", () => this.select_enemy_target("magic"), member.get_mp() >= 20);
+            this.show_btn(1, "魔法", "#2980b9", () => this.show_magic_list(member));
             this.show_btn(2, "瞑想", "#9b59b6", () => this.execute_meditation());
         } else if (member instanceof Healer) {
-            this.show_btn(1, "ヒール(15)", "#27ae60", () => this.select_target("heal"), member.get_mp() >= 15);
-            // ★ 蘇生ボタンの動的名称変更を復元
-            const can_res = member.get_mp() >= 40;
-            this.show_btn(2, can_res ? "蘇生(40)" : "命の代償", "#8e44ad", () => this.select_target("resurrection"));
+            this.show_btn(1, "魔法", "#27ae60", () => this.show_magic_list(member));
+            this.show_btn(2, "いのり","#8e44ad", () => this.execute_prayer());
         }
         this.show_btn(3, "どうぐ", "#d35400", () => this.show_item_list());
     }
 
-    select_enemy_target(action_type) {
+    show_magic_list(member) {
+        this.hide_all_command_btns();
+        document.getElementById('turn-label').innerText = "どの魔法を使いますか？";
+
+        member.skills.forEach((skill, i) => {
+            let can_use = member.get_mp() >= skill.cost;
+            let btnText = `${skill.name}(${skill.cost})`;
+            let btnColor = "#2980b9"; // 通常の魔法の色
+
+            // --- 命の代償ロジック ---
+            if (skill.type === "res") {
+                if (!can_use) {
+                    // MP不足時はテキストと色を「代償」仕様に変更
+                    btnText = "！！命の代償！！";
+                    btnColor = "#c0392b"; // 警告の赤色
+                    can_use = true;       // MP不足でも押せるようにする
+                } else {
+                    btnColor = "#f39c12"; // 蘇生魔法が使える時はオレンジ色
+                }
+            }
+            // ------------------------
+
+            this.show_btn(i, btnText, btnColor, () => {
+                if (skill.target === "all") {
+                    this.execute_all_action(skill);
+                } else if (skill.id === "meditation") {
+                    this.execute_meditation();
+                } else {
+                    if (skill.type === "attack") {
+                        this.select_enemy_target(skill.id);
+                    } else {
+                        this.select_target(skill.id);
+                    }
+                }
+            }, can_use);
+        });
+        this.show_btn(3, "戻る", "#95a5a6", () => this.setup_command_buttons(member));
+    }
+    
+    select_enemy_target(action_data) {
         document.getElementById('turn-label').innerText = "どの敵を狙いますか？";
         this.hide_all_command_btns();
 
-        // 生きている敵のインデックスだけを抽出
         const aliveEnemies = this.enemies
             .map((enemy, index) => ({ enemy, index }))
             .filter(item => item.enemy.is_alive());
 
         aliveEnemies.forEach((item, i) => {
-            // ボタンのインデックス(i)は0〜3の範囲で使用
-            if (i < 4) {
-                this.show_btn(i, item.enemy.name, "#c0392b", () => this.execute_action(action_type, item.index));
+            if (i < 3) { // 3番目まで敵を表示
+                this.show_btn(i, item.enemy.name, "#c0392b", () => {
+                    // 実行関数に「選んだスキルのデータ」を渡す
+                    this.execute_action(action_data, item.index);
+                });
             }
         });
 
-        // 3番目のボタン（一番右）を常に「戻る」に設定（敵が3体以上の場合は調整が必要 現状はこれでOK）
-        this.show_btn(3, "戻る", "#95a5a6", () => this.setup_command_buttons(this.party[this.current_turn_index]));
+        this.show_btn(3, "戻る", "#95a5a6", () => {
+            // 魔法選択から来た場合は魔法リストに戻る、そうでなければコマンドに戻る
+                const currentMember = this.party[this.current_turn_index];
+            if (typeof action_data === "object") {
+                this.show_magic_list(currentMember);
+            } else {
+                this.setup_command_buttons(currentMember);
+            }
+        });
     }
 
+    
+    //攻撃と魔法の実行
     execute_action(action_type, target_index) {
+        console.log("実行されたアクション:", action_type);
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         const target = this.enemies[target_index];
         const targetId = `enemy-sprite-${target_index}`;
+
+        let currentSkill = null;
+        if (member.skills) {
+            // action_typeが "fire" なら "fire" を、 "meteor" なら "meteor" を見つける
+            currentSkill = member.skills.find(s => s.id === action_type);
+        }
 
         if (action_type === "attack") {
             const [dmg, crit] = member.attack(target);
@@ -216,64 +277,152 @@ class BattleManager {
             this.add_log(`${member.name}の攻撃！`, "#70ABDB", true);
             if (crit) this.add_log(" > 会心の一撃！！！", "#f1c40f");
             this.add_log(` > ${target.name}に${dmg}のダメージ`);
-        } else if (action_type === "magic") {
-            const dmg = member.magic_attack(target);
-            this.effects.magicExplosion(targetId);
-            this.effects.damagePopup(dmg, targetId, "#4522c5");
-            this.add_log(`${member.name}の魔法攻撃！`, "#70ABDB", true);
+
+        } else if (currentSkill && currentSkill.type === "attack") {
+            member.set_mp(-currentSkill.cost);
+            const dmg = member.magic_attack(target, currentSkill);
+
+            // メテオの時だけさらに派手にするならここ
+            if (currentSkill.id === "meteor") {
+                this.effects.meteorEffect(targetId);
+                this.effects.damagePopup(dmg, targetId, "#4522c5");
+                this.add_log("空から巨大な隕石が降り注ぐ","#e74c3c",true);
+            }else if(currentSkill.id === "fire"){
+                this.effects.fireEffect(targetId);
+                this.effects.damagePopup(dmg, targetId, "#4522c5");
+            }
+
+            this.add_log(`${member.name}の${currentSkill.name}！`, "#70ABDB", true);
             this.add_log(` > ${target.name}に${dmg}のダメージ`);
         }
+
         setTimeout(() => {
             this.finish_turn();
         }, 500);
-    
-     
     }
 
-    select_target(type) {
-        document.getElementById('turn-label').innerText = type === "heal" ? "誰を回復しますか？" : "誰を蘇生しますか？";
+    select_target(action_id) {
+        // action_id が "heal" や "curaga" など
+        document.getElementById('turn-label').innerText = "誰を対象にしますか？";
         this.hide_all_command_btns();
+
         this.party.forEach((m, i) => {
-            let can_select = (type === "heal") ? m.is_alive() : !m.is_alive();
+            // 蘇生魔法(raise)かそれ以外かで選択可能なキャラを変える
+            let can_select = (action_id === "raise") ? !m.is_alive() : m.is_alive();
+
             this.show_btn(i, m.name, "#2ecc71", () => {
-                if (type === "heal") this.execute_heal(m);
-                else this.execute_resurrection(m);
+                if (action_id === "raise") {
+                    this.execute_resurrection(m); // 蘇生は専用メソッドへ
+                } else {
+                    this.execute_heal(action_id, m); // IDと対象を渡す
+                }
             }, can_select);
         });
-        this.show_btn(3, "戻る", "#95a5a6", () => this.setup_command_buttons(this.party[this.current_turn_index]));
+
+        this.show_btn(3, "戻る", "#95a5a6", () => this.show_magic_list(this.party[this.current_turn_index]));
     }
 
-    execute_heal(target) {
+    execute_heal(action_id, target) {
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
-        const h_val = member.heal(target);
         const targetIdx = this.party.indexOf(target);
+
+        // 引数で受け取った action_id を使って、正確なスキル情報を取得
+        const skill = member.skills.find(s => s.id === action_id);
+
+        // スキルが見つからない場合のフォールバック（通常回復など）
+        const cost = skill ? skill.cost : 15;
+        const skillName = skill ? skill.name : "回復魔法";
+
+        // MP消費（スキルごとのコストを正確に引く）
+        member.set_mp(-cost);
+
+        // 回復量の計算
+        // 基本は回復力(rec)の約1倍。魔法ごとに倍率を変えるならここで skill.id 判定を入れる
+        let multiplier = 1.0;
+        if (skill && skill.id === "curaga") multiplier = 2.5; // 強力な回復魔法を追加する場合
+
+        let heal_val = Math.floor(member.rec * multiplier * (0.9 + Math.random() * 0.2));
+
+        // クリティカル判定
+        if (Math.random() < 0.2) {
+            heal_val = Math.floor(heal_val * 1.5);
+        }
+
+        target.set_hp(heal_val);
+
+        // 演出
         this.effects.healEffect(`card-${targetIdx}`);
-        this.effects.damagePopup(`+${h_val}`, `card-${targetIdx}`, "#2ecc71");
-        this.add_log(`${member.name}の回復魔法！`, "#1C9C51", true);
-        this.add_log(` > ${target.name}を${h_val}回復`);
-        this.finish_turn();
+        this.effects.damagePopup(`+${heal_val}`, `card-${targetIdx}`, "#2ecc71");
+
+        // ログ出力（skill.name には(20)が入っていないので、そのまま表示）
+        this.add_log(`${member.name}の${skillName}！`, "#1C9C51", true);
+        this.add_log(` > ${target.name}を${heal_val}回復`);
+
+        this.update_display();
+        setTimeout(() => this.finish_turn(), 500);
     }
 
     execute_resurrection(target) {
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
-        const res_type = member.resurrection(target);
         const targetIdx = this.party.indexOf(target);
+
+        // 魔法リストから「resurrection」タイプのスキルを探す
+        const skill = member.skills.find(s => s.type === "res");
+        const cost = skill ? skill.cost : 40;
+
+        // 実際の蘇生処理を実行（戻り値で魔法か自爆か判定）
+        const res_type = member.resurrection(target);
+
         this.effects.resurrectionEffect(`card-${targetIdx}`);
+
         if (res_type === "magic") {
-            this.add_log(`${member.name}の蘇生呪文！`, "#f39c12", true);
+            // スキル名（レイズなど）をログに反映
+            const skillName = skill ? skill.name.split('(')[0] : "蘇生魔法";
+            this.add_log(`${member.name}の${skillName}！`, "#f39c12", true);
             this.add_log(` > ${target.name}が蘇った！`);
         } else {
+            // MPが足りなかった時の「命の代償」演出
             this.effects.flash("#ff4757");
             this.add_log(`${member.name}の命の代償！`, "#e74c3c", true);
             this.add_log(` > ${target.name}を完全蘇生した！`);
             this.add_log(` ！！${member.name}が倒れた！！`, "#e74c3c", true);
-        }
-        this.finish_turn();
+        } 
+    // 蘇生直後にHPバーなどの表示を更新
+    this.update_display();  
+    setTimeout(() => this.finish_turn(), 500);
     }
+    
+    execute_prayer() {
+        this.hide_all_command_btns();
+        const healer = this.party[this.current_turn_index];
+
+        this.party.forEach((m, i) => {
+            if (m.is_alive()) {
+                // 自分は直後の finish_turn で -1 されるので、
+                // 仲間と同じ回数発動させたいなら自分だけ +1 ターンにする
+                m.regen_turns = (i === this.current_turn_index) ? 4 : 3;
+            }
+        });
+        this.effects.flash("#fff");
+        this.add_log(`${healer.name}のいのり！`, "#8e44ad", true);
+        this.add_log(" > 慈愛の心が仲間たちの傷を癒していく...");
+
+        this.party.forEach((m, i) => {
+            if(m.is_alive()) {
+                this.effects.damagePopup("いのり", `card-${i}`, "#2ecc71");
+                // 祈った瞬間にキラキラさせる
+                this.effects.healEffect(`card-${i}`);
+            }
+        });
+
+        setTimeout(() => this.finish_turn(), 600);
+    }
+   
 
     execute_cover() {
+        this.hide_all_command_btns();
         const hero = this.party[this.current_turn_index];
         if (hero.skill_cover()) {
             this.add_log(`${hero.name}は身構えた！`, "#3498db", true);
@@ -283,17 +432,37 @@ class BattleManager {
     }
 
     execute_hero_skill() {
+        this.hide_all_command_btns();
         const hero = this.party[this.current_turn_index];
-        if (hero.skill_encourage(this.party)) {
-            this.effects.flash("#f1c40f");
-            this.add_log(`${hero.name}の勇者の鼓舞！`, "#f1c40f", true);
-            this.add_log(" > 全員の攻撃力が上がった！");
-            this.party.forEach((m, i) => { if(m.is_alive()) this.effects.damagePopup("ATK UP!", `card-${i}`, "#f1c40f"); });
-            this.finish_turn();
-        }
+
+        // 全員にバフをかける
+        this.party.forEach((m, i) => {
+            if (m.is_alive()) {
+                if (i === this.current_turn_index) {
+                    // ★ 今行動中の勇者本人は、この後の finish_turn で減るから「4」にする
+                    m.buff_turns = 3;
+                } else {
+                    // ★ まだ行動していない仲間は、そのまま「3」にする
+                    m.buff_turns = 2;
+                }
+            }
+        });
+
+        this.effects.flash("#f1c40f");
+        this.add_log(`${hero.name}の勇者の鼓舞！`, "#f1c40f", true);
+        this.add_log(" > 全員の攻撃力が上がった！");
+
+        // エフェクト表示
+        this.party.forEach((m, i) => { 
+            if(m.is_alive()) this.effects.damagePopup("ATK UP!", `card-${i}`, "#f1c40f"); 
+        });
+
+        hero.set_mp(-15); 
+        this.finish_turn(); 
     }
 
     execute_meditation() {
+        this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         const recover = 30;
         member.set_mp(recover);
@@ -301,6 +470,51 @@ class BattleManager {
         this.effects.damagePopup(`+${recover}MP`, `card-${this.current_turn_index}`, "#9b59b6");
         this.add_log(`${member.name}は瞑想した。MPが${recover}回復！`, "#9b59b6", true);
         this.finish_turn();
+    }
+    
+    //全体攻撃・回復
+    execute_all_action(skill) {
+        this.hide_all_command_btns();
+        const member = this.party[this.current_turn_index];
+        member.set_mp(-skill.cost);
+
+        if (skill.type === "attack") {
+            this.add_log(`${member.name}の${skill.name}！`, "#e67e22", true);
+
+        // ★ 1. まず全員の場所に一斉に火柱を出す！
+        if (skill.id === "fira") { // ファイラの場合
+            this.effects.allFireEffect(this.enemies);
+        } else {
+            this.effects.flash("#fff"); // それ以外は普通のフラッシュ
+        }
+
+        // ★ 2. 少しだけ（0.2秒くらい）待ってから、ダメージ数字を一斉に出す
+        setTimeout(() => {
+            this.enemies.forEach((target, i) => {
+                if (target.is_alive()) {
+                    const dmg = member.magic_attack(target, skill);
+                    const targetId = `enemy-sprite-${i}`;
+                    
+                    this.effects.damagePopup(dmg, targetId, "#ff4500");
+                    this.add_log(` > ${target.name}に${dmg}のダメージ`);
+                }
+            });
+        }, 200);
+    }
+        else if (skill.type === "heal") {
+            this.add_log(`${member.name}の${skill.name}！`, "#27ae60", true);
+            this.party.forEach((m, i) => {
+                if (m.is_alive()) {
+                    // Entityのrecを基準に計算
+                    let h_val = Math.floor(member.rec * 1.2); 
+                    m.set_hp(h_val);
+                    this.effects.healEffect(`card-${i}`);
+                    this.effects.damagePopup(`+${h_val}`, `card-${i}`, "#2ecc71");
+                }
+            });
+        }
+
+        setTimeout(() => this.finish_turn(), 800);
     }
 
     show_item_list() {
@@ -321,6 +535,7 @@ class BattleManager {
     }
 
     execute_use_item(item, target) {
+        this.hide_all_command_btns();
         item.count--;
         const member = this.party[this.current_turn_index];
         const targetIdx = this.party.indexOf(target);
@@ -345,6 +560,8 @@ class BattleManager {
     }
 
     finish_turn() {
+        // 現在の行動者を取得
+        const member = this.party[this.current_turn_index];
         // 全ての敵に対して分裂の判定を行う
         this.enemies.forEach((enemy, index) => {
             if (enemy.is_king && !enemy.has_split && enemy.is_alive() && enemy.get_hp() <= enemy.max_hp / 2) {
@@ -359,6 +576,33 @@ class BattleManager {
                 enemy.death_logged = true; // 重複ログ防止用のフラグ（Entityに持たせるかここで一時管理）
             }
         });
+        
+        if (member.buff_turns > 0) {
+            member.buff_turns--;
+            // バフが切れたら通知して即座に表示を更新
+            if (member.buff_turns === 0) {
+                this.add_log(` > ${member.name}の攻撃力アップが切れた`, "#bdc3c7");
+                this.update_display(); 
+            }
+        }
+        
+        if (member.is_alive() && member.regen_turns > 0) {
+            const heal_percent = 0.10; 
+            const heal_val = Math.floor(member.max_hp * heal_percent);
+
+            member.set_hp(heal_val);
+
+            // ★ 回復演出を追加
+            this.effects.healEffect(`card-${this.current_turn_index}`);
+            this.effects.damagePopup(`+${heal_val}`, `card-${this.current_turn_index}`, "#2ecc71");
+
+            this.add_log(` > ${member.name}はいのりの効果で${heal_val}回復した`, "#2ecc71");
+
+            member.regen_turns--;
+            if (member.regen_turns === 0) {
+                this.add_log(` > ${member.name}の継続回復が終わった`, "#bdc3c7");
+            }
+        }
 
         this.update_display();
         this.current_turn_index ++;
@@ -432,7 +676,7 @@ class BattleManager {
 
     this.update_display(); // 1体動くたびにHPバーを更新
 
-    //  ★重要：1秒待ってから「次のインデックスの敵」を呼び出す
+    //  1秒待ってから「次のインデックスの敵」を呼び出す
     setTimeout(() => {
         this.slime_turn(index + 1);
     }, 1000); // 1000ms = 1秒間隔
@@ -460,6 +704,11 @@ class BattleManager {
             
             // 表示を更新（ここで新しいDOM要素が作られる）
             this.update_display();
+            
+            const currentMember = this.party[this.current_turn_index];
+            if (currentMember) {
+                this.setup_command_buttons(currentMember);
+            }
 
             // 新しく作られた要素を取得
             const spriteA = document.getElementById('enemy-sprite-0');
@@ -468,7 +717,7 @@ class BattleManager {
             if (spriteA) spriteA.classList.add('appear-left');
             if (spriteB) spriteB.classList.add('appear-right');
 
-            // ★ 演出が終わったらクラスを消して、定位置に固定する
+            // 演出が終わったらクラスを消して、定位置に固定する
             setTimeout(() => {
                 if (spriteA) spriteA.classList.remove('appear-left');
                 if (spriteB) spriteB.classList.remove('appear-right');

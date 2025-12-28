@@ -125,4 +125,122 @@ class EffectManager {
         // 画面全体を一瞬白くフラッシュさせる
         this.flash("rgba(255, 255, 255, 0.5)");
     }
+    
+
+
+    meteorEffect(targetId) {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+
+        // 1. ターゲット（敵）の画面上の位置を取得
+        const rect = target.getBoundingClientRect();
+        const targetX = rect.left + rect.width / 2;
+        const targetY = rect.top + rect.height / 2;
+
+        // 2. 岩を生成
+        const rock = document.createElement('div');
+        rock.className = 'meteor-rock';
+        // 最初は画面上の外
+        rock.style.left = `${targetX}px`;
+        rock.style.top = `0px`; 
+        document.body.appendChild(rock);
+
+        // 3. 画面を揺らし始める
+        document.body.classList.add('screen-shake');
+
+        // 4. 少し遅らせてターゲットの位置まで落下させる
+        setTimeout(() => {
+            rock.style.transform = `translate(-50%, ${targetY}px) scale(1.2)`;
+        }, 10);
+
+        // 5. 着弾時の処理
+        setTimeout(() => {
+            // 岩を消す
+            rock.style.opacity = "0";
+
+            // 爆発エフェクトを敵の位置に出す
+            const explosion = document.createElement('div');
+            explosion.className = 'meteor-explosion';
+            target.parentElement.appendChild(explosion); // 敵の親要素に追加
+
+            // 閃光と揺れの停止
+            this.flash("rgba(255, 255, 255, 0.8)");
+            setTimeout(() => document.body.classList.remove('screen-shake'), 200);
+
+            // 要素の掃除
+            setTimeout(() => {
+                if (rock.parentNode) rock.parentNode.removeChild(rock);
+                if (explosion.parentNode) explosion.parentNode.removeChild(explosion);
+            }, 500);
+        }, 410); // transitionの0.4sに合わせる
+    }
+
+    fireEffect(targetId) {
+        const target = document.getElementById(targetId);
+        if (!target) return;
+
+        const rect = target.getBoundingClientRect();
+        const targetX = rect.left + rect.width / 2;
+        const targetY = rect.top + rect.height / 2;
+
+        const ball = document.createElement('div');
+        ball.className = 'fireball';
+
+        // 画面の下側（魔法使いの位置あたり）から発射
+        ball.style.left = `50%`; 
+        ball.style.top = `90%`;
+        document.body.appendChild(ball);
+
+        // 敵に向かって飛ばす
+        setTimeout(() => {
+            ball.style.transform = `translate(${targetX - (window.innerWidth/2)}px, -${window.innerHeight * 0.9 - targetY}px) scale(1.2)`;
+        }, 20);
+
+        // 着弾
+        setTimeout(() => {
+            ball.style.opacity = "0";
+
+            const fire = document.createElement('div');
+            fire.className = 'fire-burn';
+            target.parentElement.appendChild(fire);
+
+            // 小さなフラッシュ
+            this.flash("rgba(255, 69, 0, 0.4)");
+
+            setTimeout(() => {
+                if (ball.parentNode) ball.parentNode.removeChild(ball);
+                if (fire.parentNode) fire.parentNode.removeChild(fire);
+            }, 500);
+        }, 320);
+    }
+
+    allFireEffect(enemies) {
+        enemies.forEach((enemy, i) => {
+            if (!enemy.is_alive()) return;
+
+            const targetId = `enemy-sprite-${i}`;
+            const target = document.getElementById(targetId);
+            if (!target) return;
+
+            
+            [0, 1, 2].forEach((j) => {
+                setTimeout(() => {
+                    const fire = document.createElement('div');
+                    fire.className = 'fire-burn';
+                    fire.style.marginLeft = `${(j - 1) * 15}px`;
+                    target.parentElement.appendChild(fire);
+
+                    setTimeout(() => {
+                        if (fire.parentNode) fire.parentNode.removeChild(fire);
+                    }, 600);
+                }, j * 80); 
+            });
+        });
+
+        document.body.classList.add('screen-shake');
+        this.flash("rgba(255, 69, 0, 0.6)");
+        setTimeout(() => document.body.classList.remove('screen-shake'), 400);
+    }
+    
+    
 }

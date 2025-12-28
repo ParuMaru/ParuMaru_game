@@ -17,6 +17,7 @@ class Entity {
 
         this.is_covering = false; // かばう中か
         this.buff_turns = 0;      // 攻撃力UPの残りターン
+        this.regen_turns = 0;     // いのり残りターン数
     }
 
     set_hp(value) {
@@ -115,32 +116,47 @@ class Hero extends Entity {
 class Wizard extends Entity {
     constructor(name) {
         super(name, 180, 150, 20, 20, 60, 50, 50, 15);
+        this.skills = [
+    { id: "fire", name: "ファイア", cost: 20, target: "single", type: "attack" },
+    { id: "fira", name: "ファイラ", cost: 35, target: "all", type: "attack" },
+    { id: "meteor", name: "メテオ", cost: 50, target: "single", type: "attack" }
+            ];
     }
+    
 
-    magic_attack(target) {
-        const COST = 20;
-        if (this.get_mp() < COST) return 0;
+    magic_attack(target, skill = null) {
+        // skillが渡されない場合はデフォルト（魔法攻撃コマンドなど）
+        const cost = skill ? skill.cost : 20;
+        const skillId = skill ? skill.id : "magic";
 
-        this.set_mp(-COST);
-        
-        // 自分の matk と 相手の mdef で計算
-        let damage = Math.floor(this.matk * 1.5 + (Math.random() * 20));
-        
+        // 基本ダメージ計算
+        let powerMultiplier = 1.5;
+        if (skillId === "all_magic") powerMultiplier = 1.1; // 全体魔法は少し威力を抑える
+        if (skillId === "fire") powerMultiplier = 1.5; // ファイアは基準
+        if (skillId === "meteor") powerMultiplier = 2.5; // メテオは強力
+
+        let damage = Math.floor(this.matk * powerMultiplier + (Math.random() * 20));
+
         if (this.buff_turns > 0) {
             damage = Math.floor(damage * 1.25);
         }
 
-        // 魔法防御で減算（魔法は通りやすいよう、防御の影響を少し弱めに調整）
-        let final_dmg = Math.max(1, damage - Math.floor(target.mdef / 3));
-        
-        target.set_hp(-final_dmg);
-        return final_dmg;
+    // 防御計算
+    let final_dmg = Math.max(1, damage - Math.floor(target.mdef / 3));
+    
+    target.set_hp(-final_dmg);
+    return final_dmg;
     }
 }
 
 class Healer extends Entity {
     constructor(name) {
         super(name, 200, 150, 25, 25, 40, 60, 35, 75);
+        this.skills = [
+    { id: "heal", name: "ケアル", cost: 15, target: "single", type: "heal" },
+    { id: "medica", name: "メディカ", cost: 30, target: "all", type: "heal" },
+    { id: "raise", name: "レイズ", cost: 40, target: "single", type: "res" }
+        ];
     }
     // healは親クラスの共通処理を使うため削除
 
@@ -158,6 +174,8 @@ class Healer extends Entity {
             return "sacrifice";
         }
     }
+    
+    
 }
 
 class Slime extends Entity {

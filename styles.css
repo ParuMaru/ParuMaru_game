@@ -252,3 +252,110 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     font-size: 20px; /* 名前も大きく */
     color: #f1c40f;
 }
+
+/* 画面全体を揺らすためのクラス (前回の追加分) */
+.screen-shake {
+    animation: shake-action 0.1s infinite;
+}
+
+@keyframes shake-action {
+    0% { transform: translate(0, 0); }
+    25% { transform: translate(8px, 8px); }
+    50% { transform: translate(-8px, -8px); }
+    75% { transform: translate(8px, -8px); }
+    100% { transform: translate(0, 0); }
+}
+
+/* メテオの岩の基本スタイル */
+.meteor-rock {
+    position: fixed;
+    top: 0;
+    left: 50%;
+    width: 80px;
+    height: 80px;
+    background: radial-gradient(circle, #ff4500, #3a1c02 70%);
+    border-radius: 50%;
+    box-shadow: 0 0 30px #ff4500;
+    z-index: 1000;
+    pointer-events: none;
+    /* transform-originを中央に */
+    transform: translate(-50%, -100px); 
+    /* 落下アニメーション：移動はJSのtransitionで行う */
+    transition: transform 0.4s ease-in, opacity 0.2s;
+}
+/* 爆発エフェクト */
+.meteor-explosion {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 150px;
+    height: 150px;
+    background: radial-gradient(circle, #fff 10%, #ff4500 50%, transparent 70%);
+    transform: translate(-50%, -50%) scale(0);
+    border-radius: 50%;
+    z-index: 1001;
+    animation: explosion-anim 0.4s ease-out forwards;
+}
+@keyframes explosion-anim {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+}
+/* 複数のメテオを同時に降らせるためのスタイル */
+.meteor-rock:nth-child(2) { animation-delay: 0.1s; width: 80px; height: 80px; transform: translate(-100%, -150px) scale(0.4); }
+.meteor-rock:nth-child(3) { animation-delay: 0.2s; width: 120px; height: 120px; transform: translate(0%, -80px) scale(0.6); }
+
+/* 落下アニメーション */
+@keyframes meteor-fall {
+    0% { opacity: 0; transform: translate(var(--start-x, -50%), -100px) scale(0.5) rotate(0deg); } /* var(--start-x) で位置をランダムに */
+    20% { opacity: 1; }
+    100% { opacity: 0; transform: translate(var(--end-x, -50%), 100vh) scale(1.5) rotate(360deg); } /* 画面下まで落下し、拡大・回転しながら消える */
+}
+
+/* 火球（ファイア本体） */
+.fireball {
+    position: fixed;
+    width: 40px;
+    height: 40px;
+    background: radial-gradient(circle, #fff 0%, #ff4500 50%, #ff8c00 100%);
+    border-radius: 50%;
+    box-shadow: 0 0 20px #ff4500, 0 0 10px #ff8c00;
+    z-index: 1000;
+    pointer-events: none;
+    transition: transform 0.3s ease-in, opacity 0.1s;
+}
+
+/* 敵が燃えるエフェクト */
+.fire-burn {
+    position: absolute;
+    bottom: 10%; /* 足元から出す */
+    left: 50%;
+    width: 100px;
+    height: 150px;
+    background: radial-gradient(ellipse at bottom, #fff 0%, #ff4500 40%, #ff8c00 70%, transparent 90%);
+    filter: blur(2px);
+    transform: translate(-50%, 0) scale(0);
+    z-index: 1001;
+    mix-blend-mode: screen; /* 背景と馴染んで発光して見える */
+    animation: fire-pillar-anim 0.6s ease-out forwards;
+}
+
+/* 火の粉の演出（疑似要素で追加） */
+.fire-burn::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background-image: radial-gradient(circle, #ffec8b 20%, transparent 20%);
+    background-size: 15px 15px;
+    animation: sparks-anim 0.5s linear infinite;
+}
+
+@keyframes fire-pillar-anim {
+    0% { transform: translate(-50%, 20px) scale(0.2, 2); opacity: 0; }
+    30% { transform: translate(-50%, -40px) scale(1.5, 1.2); opacity: 1; }
+    100% { transform: translate(-50%, -100px) scale(0.8, 1.5); opacity: 0; }
+}
+
+@keyframes sparks-anim {
+    0% { background-position: 0 0; opacity: 1; }
+    100% { background-position: -10px -50px; opacity: 0; }
+}
