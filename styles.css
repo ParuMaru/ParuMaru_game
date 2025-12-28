@@ -22,7 +22,7 @@ body {
 
 #canvas-area {
     position: relative;
-    height: 400px; 
+    height: 300px; 
     background-image: url("bg.png");
     background-size: cover;
     background-position: center;
@@ -54,7 +54,7 @@ body {
 
 /* ログエリア */
 #log { 
-    height: 200px; 
+    height: 150px; 
     background: #1a252f; 
     margin: 10px 0; 
     padding: 8px; 

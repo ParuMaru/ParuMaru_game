@@ -13,7 +13,7 @@ class BattleManager {
         this.items = [
             { id: "potion", name: "ポーション", count: 3, effect: 50, description: "HPを50回復" },
             { id: "ether", name: "エーテル", count: 2, effect: 30, description: "MPを30回復" },
-            { id: "leaf", name: "世界樹の葉", count: 1, effect: 0.5, description: "仲間一人をHP50%で蘇生" }
+            { id: "phoenix", name: "フェニックスの尾", count: 1, effect: 0.5, description: "仲間一人をHP50%で蘇生" }
 ];
 
         // エフェクトマネージャーの初期化
@@ -350,7 +350,7 @@ class BattleManager {
             let can_select = false;
 
             // アイテムの種類によって選択可能 な対象を変える
-            if (item.id === "leaf") {
+            if (item.id === "phoenix") {
                 // 蘇生アイテムは「死んでいるキャラ」のみ
                 can_select = !m.is_alive();
             } else {
@@ -372,7 +372,7 @@ class BattleManager {
         const targetIdx = this.party.indexOf(target);
         const member = this.party[this.current_turn_index];
 
-        if (item.id === "leaf") {
+        if (item.id === "phoenix") {
             // --- 蘇生アイテムの処理 ---
             const revive_hp = Math.floor(target.max_hp * item.effect);
             target.revive(revive_hp); // Entityに追加したreviveメソッドを使用
