@@ -10,6 +10,9 @@ class EffectManager {
         target = target.parentElement;
     }
         
+    target.style.position = 'relative'; 
+    target.style.overflow = 'visible';
+        
     // 斬撃要素を作成
     const slash = document.createElement('div');
     slash.className = 'slash-line';
@@ -34,7 +37,9 @@ class EffectManager {
         if (target.tagName === 'IMG') {
             target = target.parentElement;
         }
-
+        
+        target.style.position = 'relative';
+        
         const circle = document.createElement('div');
         circle.className = 'magic-circle';
         target.appendChild(circle);

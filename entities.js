@@ -57,7 +57,7 @@ class Entity {
     // healを共通化。自分のrecを使用
     heal(target) {
         const COST = 15;
-        this.set_mp(-COST)
+        this.set_mp(-COST);
         // 基本回復量: 回復力の 0.9 ～ 1.1 倍
         let heal_val = Math.floor(this.rec * (0.9 + Math.random() * 0.2));
         
@@ -161,8 +161,18 @@ class Healer extends Entity {
 }
 
 class Slime extends Entity {
-    constructor(name) {
-        super(name, 1000, 0, 70, 40, 40, 35, 20, 40);
+    constructor(name, type = "king") {
+        if (type === "king") {
+            // キングスライム：高耐久・高火力
+            super(name, 1000, 0, 70, 40, 40, 35, 20, 40);
+            this.is_king = true;
+            this.img = "slime.png"; // ★ 王冠あり
+        } else {
+            // 分裂後のスライム：HP・火力は下がるが、2体になるので手数が増える
+            super(name, 300, 0, 45, 25, 30, 20, 40, 20);
+            this.is_king = false;
+            this.img = "splited_slime.png"; // ★ 王冠なし
+        }
+        this.has_split = false; 
     }
-    // attackは親クラスの共通処理を使うため削除
 }
