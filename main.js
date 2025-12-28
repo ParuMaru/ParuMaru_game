@@ -67,6 +67,10 @@ class BattleManager {
         const unit = document.createElement('div');
         unit.className = "enemy-unit";
         
+        if (enemy.is_king && enemy.is_alive()) {
+            unit.classList.add("king-size");
+        }
+        
         // 生きている時だけ中身を表示、死んでいたら空にするか隠す
         if (enemy.is_alive()) {
             const hp_ratio = (enemy.get_hp() / enemy.max_hp) * 100;

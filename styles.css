@@ -237,3 +237,18 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .appear-left { animation: split-left 0.5s ease-out forwards; }
 .appear-right { animation: split-right 0.5s ease-out forwards; }
+
+/* キングスライム専用の巨大化設定 */
+.king-size .enemy-img {
+    width: 200px; /* 通常120pxなので約2倍の迫力 */
+    filter: drop-shadow(0 0 15px rgba(241, 196, 15, 0.5)); /* ボスっぽく光らせる */
+}
+
+.king-size .enemy-hp-container {
+    width: 180px; /* HPバーも長く */
+}
+
+.king-size .enemy-label {
+    font-size: 20px; /* 名前も大きく */
+    color: #f1c40f;
+}
