@@ -1,9 +1,15 @@
 class EffectManager {
+
     // 斬撃エフェクト：赤い斜めの閃光
     slashEffect(targetId) {
-    const target = document.getElementById(targetId);
+    let target = document.getElementById(targetId);
     if (!target) return;
 
+    // もしターゲットが画像(enemy-sprite)だったら、親のコンテナ(enemy-target)を取得
+    if (target.tagName === 'IMG') {
+        target = target.parentElement;
+    }
+        
     // 斬撃要素を作成
     const slash = document.createElement('div');
     slash.className = 'slash-line';
@@ -21,8 +27,13 @@ class EffectManager {
     
     // 魔法攻撃エフェクト：青白い爆発のような光
     magicExplosion(targetId) {
-        const target = document.getElementById(targetId);
+        let target = document.getElementById(targetId);
         if (!target) return;
+        
+        // もしターゲットが画像(enemy-sprite)だったら、親のコンテナ(enemy-target)を取得
+        if (target.tagName === 'IMG') {
+            target = target.parentElement;
+        }
 
         const circle = document.createElement('div');
         circle.className = 'magic-circle';

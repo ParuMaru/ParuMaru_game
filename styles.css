@@ -1,305 +1,158 @@
 /* =========================================
    基本レイアウト
    ========================================= */
-
-/* レイアウト（CSS） */
-body { background-color: #2c3e50; color: white; font-family: "MS Gothic", sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
-#canvas-area { width: 600px; height: 350px; background-color: #34495e; position: relative; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-
-/*敵の名前*/
-#enemy-name{flex-shrink: 0;}
-
-/* 敵のHPバー */
-.hp-container { 
-    width: 300px; 
-    height: 20px; 
-    background: #7f8c8d; 
-    border-radius: 10px; 
-    margin-top: 10px; 
-    position: relative; 
-    flex-shrink: 0; 
-}
-.mp-container { 
-    width: 300px; 
-    height: 20px; 
-    background: #7f8c8d; 
-    border-radius: 10px; 
-    margin-top: 10px; 
-    position: relative; 
-    flex-shrink: 0; 
-}
-#enemy-hp-bar { 
-    width: 100%; 
-    height: 100%; 
-    background: #e74c3c; 
-    border-radius: 10px; 
-    transition: width 0.3s; 
-}
-#enemy-hp-text {
-    position: absolute;
-    width: 100%;
-    text-align: center;
-    top: 0;
-    left: 0;
-    transform: translateY(-110%); /* バーの真上に配置 */
-    z-index: 10;
-    font-size: 20px;
-    font-weight: bold;
-    color: white;
-    text-shadow: 1px 1px 2px #000;
-}
-
-/* ログエリア */
-#log { width: 570px; height: 200px; background: #1a252f; margin: 15px 0; padding: 10px; overflow-y: auto; border: 1px solid #34495e; font-size: 14px; display: flex; flex-direction: column-reverse; }
-        
-/* ステータスエリア */
-#status-area { width: 600px; display: flex; justify-content: space-around; background: #2c3e50; padding: 40px 0 10px 0; border: 1px solid #ecf0f1; }
-.member-card { 
-    width: 180px; 
-    text-align: center; 
-    border: 1px solid #34495e; 
+body { 
+    background-color: #2c3e50; 
+    color: white; 
+    font-family: "MS Gothic", sans-serif; 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    margin: 0; 
     padding: 10px; 
-    border-radius: 5px; 
-    position: relative; /* エフェクトの基準点にする */
-    overflow: visible;
-    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)
+    box-sizing: border-box;
 }
-.mini-hp-bar-bg { width: 140px; height: 10px; background: #7f8c8d; margin: 5px auto; }
-.mini-hp-bar { width: 100%; height: 100%; background: #2ecc71; transition: width 0.3s; }
-.mini-mp-bar-bg { width: 140px; height: 10px; background: #7f8c8d; margin: 5px auto; }
-.mini-mp-bar { width: 100%; height: 100%; background: #2e95cc; transition: width 0.3s; }
 
-/* コマンドボタン */
-#command-area { margin-top: 20px; text-align: center; }
-#turn-label { color: #f1c40f; font-weight: bold; margin-bottom: 10px; height: 24px; }
-.btn-group { display: flex; gap: 10px; }
-button { width: 120px; height: 45px; cursor: pointer; border: none; color: white; font-weight: bold; border-radius: 5px; font-family: "MS Gothic"; }
-button:disabled { background-color: #7f8c8d !important; cursor: not-allowed; }
-      
+/* 全体の幅をスマホ・PC両対応に */
+#canvas-area, #log, #status-area, #command-area {
+    width: 100%;
+    max-width: 600px;
+    box-sizing: border-box;
+}
 
-/* バトル背景の設定 */
 #canvas-area {
     position: relative;
-    width: 100%;
-    height: 350px;
+    height: 400px; 
     background-image: url("bg.png");
     background-size: cover;
     background-position: center;
     border-bottom: 4px solid #444;
-    
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     align-items: center;
-    overflow: hidden; /* 斬撃がはみ出さないように */
+    overflow: hidden; 
     padding: 10px 0;
 }
 
-
-/* スライム画像の設定 */
-.enemy-sprite-container {
+.hp-container { 
+    width: 80%; 
+    height: 18px; 
+    background: #7f8c8d; 
+    border-radius: 10px; 
     position: relative;
-    flex-grow: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     margin-bottom: 10px;
-    filter: drop-shadow(0 0 15px rgba(0,0,0,0.7));
+}
+#enemy-hp-bar { width: 100%; height: 100%; background: #e74c3c; border-radius: 10px; transition: width 0.3s; }
+#enemy-hp-text {
+    position: absolute;
+    width: 100%; text-align: center;
+    top: -22px; left: 0;
+    font-size: 16px; font-weight: bold; text-shadow: 1px 1px 2px #000;
 }
 
-#enemy-sprite {
-    width: 250px; /* サイズ調整 */
-    height: auto;
-    filter: drop-shadow(0 0 10px rgba(0,0,0,0,8));
-    animation: slimeFloating 3s ease-in-out infinite; /* 常にぷるぷるさせる */
-    z-index: 5;
+/* ログエリア */
+#log { 
+    height: 200px; 
+    background: #1a252f; 
+    margin: 10px 0; 
+    padding: 8px; 
+    overflow-y: auto; 
+    border: 1px solid #34495e; 
+    font-size: 13px; 
+    display: flex; 
+    flex-direction: column-reverse; 
 }
 
-/* スライムがぷるぷる動くアニメーション */
+/* ステータスエリア：横並びを強制 */
+#status-area { 
+    display: flex; 
+    flex-direction: row; /* 横に並べる */
+    justify-content: space-around; 
+    background: #2c3e50; 
+    padding: 15px 5px; 
+    border: 1px solid #ecf0f1; 
+    gap: 4px;
+}
+.member-card { 
+    flex: 1; 
+    min-width: 0; 
+    text-align: center; 
+    border: 1px solid #34495e; 
+    padding: 5px 2px; 
+    border-radius: 5px; 
+    position: relative;
+    font-size: 12px;
+}
+
+.mini-hp-bar-bg, .mini-mp-bar-bg { width: 90%; height: 8px; background: #7f8c8d; margin: 3px auto; }
+.mini-hp-bar { width: 100%; height: 100%; background: #2ecc71; transition: width 0.3s; }
+.mini-mp-bar { width: 100%; height: 100%; background: #2e95cc; transition: width 0.3s; }
+
+/* コマンドボタン */
+.btn-group { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; /* スマホで2列 */
+    gap: 8px; 
+}
+@media (min-width: 480px) {
+    .btn-group { grid-template-columns: repeat(4, 1fr); } /* PCで4列 */
+}
+
+button { 
+    width: 100%; height: 45px; cursor: pointer; border: none; 
+    background-color: #34495e; color: white; font-weight: bold; border-radius: 5px; 
+}
+
+/* =========================================
+   演出・エフェクト
+   ========================================= */
+.enemy-sprite-container { position: relative; flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+#enemy-sprite { width: 180px; height: auto; animation: slimeFloating 3s ease-in-out infinite; }
+
 @keyframes slimeFloating {
     0%, 100% { transform: translateY(0) scale(1, 1); }
     50% { transform: translateY(-10px) scale(1.05, 0.95); }
 }
 
-/* 攻撃を受けた時の揺れ（既存のshakeに追加で適用される） */
-#enemy-sprite.shake {
-    animation: shake 0.3s;
+.slash-line {
+    position: absolute;
+    top: 50%; left: 50%; width: 150px; height: 4px;
+    background: linear-gradient(90deg, transparent, #fff 50%, transparent);
+    box-shadow: 0 0 10px #ff4757;
+    z-index: 1000;
+    transform: translate(-50%, -50%) rotate(-45deg);
+    animation: enemySlash 0.15s ease-out forwards;
+}
+@keyframes enemySlash {
+    0% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(0); opacity: 0; }
+    50% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(1.2); opacity: 1; }
+    100% { transform: translate(-50%, -50%) rotate(-45deg) scaleX(1); opacity: 0; }
 }
 
-/* ダメージ数字のデザイン */
-.damage-popup {
-    position: absolute;
-    top: 50%;           /* コンテナの真ん中から */
-    left: 50%;
+.magic-circle {
+    position: absolute; top: 50%; left: 50%; width: 50px; height: 50px;
+    border: 5px solid #70abdb; border-radius: 50%;
     transform: translate(-50%, -50%);
-    font-size: 32px;    /* 大きく見やすく */
-    font-weight: bold;
-    text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; /* 黒縁をつけてクッキリ */
-    z-index: 100;
-    pointer-events: none;
+    animation: magicAnim 0.5s ease-out forwards;
+}
+@keyframes magicAnim {
+    0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(4); opacity: 0; }
+}
+
+.damage-popup {
+    position: absolute; top: 50%; left: 50%; font-size: 28px; font-weight: bold;
+    text-shadow: 2px 2px 0 #000; z-index: 100;
     animation: damageUp 0.8s ease-out forwards;
 }
-
-/* 数字が上に跳ねるアニメーション */
 @keyframes damageUp {
     0% { transform: translate(-50%, -20%) scale(0.5); opacity: 0; }
     20% { transform: translate(-50%, -80%) scale(1.2); opacity: 1; }
     100% { transform: translate(-50%, -150%) scale(1); opacity: 0; }
 }
 
-        
-/* =========================================
-   演出・エフェクト用アニメーション
-   ========================================= */
-
-
-/* 斬撃：敵の上だけで光る鋭い一撃 */
-.slash-line {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 150px; /* 敵のサイズに合わせる */
-    height: 4px;
-    background: linear-gradient(90deg, transparent, #fff 50%, transparent);
-    box-shadow: 0 0 10px #ff4757;
-    pointer-events: none;
-    z-index: 100;
-    /* 中心から斜めに走る設定 */
-    transform: translate(-50%, -50%) rotate(-45deg);
-    animation: enemySlash 0.15s ease-out forwards;
-}
-
-@keyframes enemySlash {
-    0% {
-        transform: translate(-100%, -100%) rotate(-45deg) scaleX(0);
-        opacity: 0;
-    }
-    50% {
-        transform: translate(-50%, -50%) rotate(-45deg) scaleX(1.2);
-        opacity: 1;
-    }
-    100% {
-        transform: translate(0%, 0%) rotate(-45deg) scaleX(1);
-        opacity: 0;
-    }
-}
-
-/* 魔法：広がる円形エフェクト */
-.magic-circle {
-    position: absolute;
-    width: 50px;
-    height: 50px;
-    border: 5px solid #70abdb;
-    border-radius: 50%;
-    box-shadow: 0 0 20px #70abdb;
-    animation: magicAnim 0.5s ease-out forwards;
-}
-
-@keyframes magicAnim {
-    0% { transform: scale(0.5); opacity: 1; }
-    100% { transform: scale(4); opacity: 0; }
-}
-
-
-/* カード自体に relative を設定（これがないと heal-light が飛び出します） */
-.card {
-    position: relative; 
-}
-
-/* 回復エフェクト：対象のカードのみ */
-.heal-light {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(46, 204, 113, 0.5); /* 鮮やかな緑 */
-    pointer-events: none;
-    z-index: 10;
-    border-radius: 8px; /* カードの角丸に合わせる */
-    animation: healFlash 0.6s ease-out forwards;
-}
-
-@keyframes healFlash {
-    0% {
-        opacity: 0;
-        box-shadow: inset 0 0 0px rgba(255, 255, 255, 0);
-    }
-    30% {
-        opacity: 1;
-        box-shadow: inset 0 0 30px rgba(255, 255, 255, 0.8); /* 内側に白い光 */
-    }
-    100% {
-        opacity: 0;
-        box-shadow: inset 0 0 0px rgba(255, 255, 255, 0);
-    }
-}
-
-/* 蘇生：金色のフラッシュ */
-@keyframes resurrectionFlash {
-    0% { filter: brightness(1) sepia(0); }
-    50% { filter: brightness(2) sepia(1) saturate(5); background-color: #f1c40f; }
-    100% { filter: brightness(1) sepia(0); }
-}
-
-@keyframes fadeOut {
-    from { opacity: 1; }
-    to { opacity: 0; }
-}
-
-.screen-flash {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 9999;
-    pointer-events: none;
-}
-
-/* 揺れアニメーションの定義 */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-10px); }
-    75% { transform: translateX(10px); }
-}
-
-/*のしかかりの揺れ*/
-@keyframes heavyShake {
-    0% { transform: translateY(0); }
-    25% { transform: translateY(15px); }
-    50% { transform: translateY(-10px); }
-    75% { transform: translateY(5px); }
-    100% { transform: translateY(0); }
-}
-
-.heavy-shake {
-    animation: heavyShake 0.4s ease-in-out;
-}
-
-.active-member {
-    transform: translateY(-30px) ;
-    border-color: #f1c40f !important;
-    box-shadow: 0 0 20px rgba(241, 196, 15, 0.5);
-    transition: transform 0.3s;
-    z-index: 100;
-}
-
-.status-effects {
-    margin-top: 5px;
-    height: 24px;
-    display: flex;
-    gap: 5px;
-    justify-content: center;
-}
-
-.badge {
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-size: 10px;
-    font-weight: bold;
-    color: white;
-}
-
-.badge-atk { background-color: #f1c40f; border: 1px solid #d4ac0d; } /* 攻撃UPは金 */
-.badge-cover { background-color: #3498db; border: 1px solid #2980b9; } /* かばうは青 */
+.active-member { transform: translateY(-15px) !important; border-color: #f1c40f !important; box-shadow: 0 0 10px #f1c40f; }
+.screen-flash { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; pointer-events: none; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-10px); } 75% { transform: translateX(10px); } }
