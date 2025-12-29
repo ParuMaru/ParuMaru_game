@@ -807,16 +807,19 @@ window.onload = () => {
     const startBtn = document.getElementById('start-button');
     const overlay = document.getElementById('start-overlay');
 
-    startBtn.onclick = () => {
-        // 1. 真っ先に AudioContext を叩き起こす（これが最優先）
-        game.bgm.initContext();
+    // ユーザーが「戦闘開始」を押した瞬間にすべての許可を確定させる
+    startBtn.addEventListener("click", () => {
+        // 1. AudioContextの初期化とAndroid用ダミー音再生
+        game.bgm.initContext(); 
         
+        // 2. 画面を隠す
         overlay.style.display = 'none';
         
-        // 2. Androidの内部処理待ちとして少しだけ（100ms）待ってから再生
+        // 3. 少し待ってからBGM開始（Androidの処理待ち）
         setTimeout(() => {
             game.bgm.start();
             game.add_log("--- バトル開始 ---", "#f1c40f");
         }, 100);
-    };
+        
+    }, { once: true }); // 一度だけ実行
 };
