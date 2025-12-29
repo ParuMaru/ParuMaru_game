@@ -610,77 +610,78 @@ class BattleManager {
     }
 
     slime_turn(index = 0) {
-    //  全員の行動が終わったかチェック
-    if (index >= this.enemies.length) {
-        // 全員のターンが終わったら「かばう」を解除して味方のターンへ
-        this.party.forEach(m => m.is_covering = false);
-        this.current_turn_index = 0;
-        this.update_display();
 
-        if (this.party.every(m => !m.is_alive())) {
-            setTimeout(() => { alert("パーティは全滅しました..."); location.reload(); }, 200);
+        //  全員の行動が終わったかチェック
+        if (index >= this.enemies.length) {
+            // 全員のターンが終わったら「かばう」を解除して味方のターンへ
+            this.party.forEach(m => m.is_covering = false);
+            this.current_turn_index = 0;
+            this.update_display();
+
+            if (this.party.every(m => !m.is_alive())) {
+                setTimeout(() => { alert("パーティは全滅しました..."); location.reload(); }, 200);
+            } else {
+                this.next_player_step();
+            }
+            return;
+        }
+
+        const enemy = this.enemies[index];
+        const alive_members = this.party.filter(m => m.is_alive());
+
+        //  この敵が死んでいる、または味方が全滅していたら即座に次の敵のチェックへ
+        if (!enemy.is_alive() || alive_members.length === 0) {
+            this.slime_turn(index + 1);
+            return;
+        }
+
+        // --- ここから敵1体分の行動ロジック ---
+        const action_roll = Math.random();
+        const hero = this.party[0];
+
+        if (action_roll < 0.2) {
+            const h_val = enemy.heal(enemy);
+            this.effects.healEffect(`enemy-sprite-${index}`);
+            this.add_log(`${enemy.name}の再生！ ${h_val}回復`, "#e67e22");
+        } else if (action_roll < 0.5) {
+            this.add_log(`${enemy.name}の「のしかかり」！`, "#e74c3c", true);
+            this.effects.flash("rgba(231, 76, 60, 0.5)");
+            alive_members.forEach(m => {
+                let raw_dmg = Math.floor(Math.random() * 21) + 40; 
+                let dmg = Math.max(5, raw_dmg - Math.floor(m.def / 2));
+                if (hero.is_alive() && hero.is_covering && m !== hero) dmg = Math.floor(dmg * 0.5);
+                m.set_hp(-dmg);
+                const idx = this.party.indexOf(m);
+                this.effects.slashEffect(`card-${idx}`);
+                this.effects.damagePopup(dmg, `card-${idx}`);
+                this.add_log(` > ${m.name}に${dmg}ダメ`);
+            });
         } else {
-            this.next_player_step();
-        }
-        return;
-    }
-
-    const enemy = this.enemies[index];
-    const alive_members = this.party.filter(m => m.is_alive());
-
-    //  この敵が死んでいる、または味方が全滅していたら即座に次の敵のチェックへ
-    if (!enemy.is_alive() || alive_members.length === 0) {
-        this.slime_turn(index + 1);
-        return;
-    }
-
-    // --- ここから敵1体分の行動ロジック ---
-    const action_roll = Math.random();
-    const hero = this.party[0];
-
-    if (action_roll < 0.2) {
-        const h_val = enemy.heal(enemy);
-        this.effects.healEffect(`enemy-sprite-${index}`);
-        this.add_log(`${enemy.name}の再生！ ${h_val}回復`, "#e67e22");
-    } else if (action_roll < 0.5) {
-        this.add_log(`${enemy.name}の「のしかかり」！`, "#e74c3c", true);
-        this.effects.flash("rgba(231, 76, 60, 0.5)");
-        alive_members.forEach(m => {
-            let raw_dmg = Math.floor(Math.random() * 21) + 40; 
-            let dmg = Math.max(5, raw_dmg - Math.floor(m.def / 2));
-            if (hero.is_alive() && hero.is_covering && m !== hero) dmg = Math.floor(dmg * 0.5);
-            m.set_hp(-dmg);
-            const idx = this.party.indexOf(m);
+            const target = alive_members[Math.floor(Math.random() * alive_members.length)];
+            let [dmg, crit] = enemy.attack(target);
+            let final_target = target;
+            if (hero.is_alive() && hero.is_covering && target !== hero) {
+                final_target = hero;
+                let [hd, hc] = enemy.attack(hero);
+                dmg = Math.floor(hd * 0.5); crit = hc;
+                this.add_log(` > ${hero.name}が仲間の盾になった！`, "#3498db");
+            }
+            final_target.set_hp(-dmg);
+            const idx = this.party.indexOf(final_target);
             this.effects.slashEffect(`card-${idx}`);
-            this.effects.damagePopup(dmg, `card-${idx}`);
-            this.add_log(` > ${m.name}に${dmg}ダメ`);
-        });
-    } else {
-        const target = alive_members[Math.floor(Math.random() * alive_members.length)];
-        let [dmg, crit] = enemy.attack(target);
-        let final_target = target;
-        if (hero.is_alive() && hero.is_covering && target !== hero) {
-            final_target = hero;
-            let [hd, hc] = enemy.attack(hero);
-            dmg = Math.floor(hd * 0.5); crit = hc;
-            this.add_log(` > ${hero.name}が仲間の盾になった！`, "#3498db");
+            this.effects.damagePopup(dmg, `card-${idx}`, crit ? "#c0392b" : "#ff4757");
+            this.add_log(`${enemy.name}の攻撃！`, "#e67e22", true);
+            if (crit) this.add_log(" > 痛恨の一撃！！！", "#c0392b");
+            this.add_log(` > ${final_target.name}に${dmg}のダメージ`);
         }
-        final_target.set_hp(-dmg);
-        const idx = this.party.indexOf(final_target);
-        this.effects.slashEffect(`card-${idx}`);
-        this.effects.damagePopup(dmg, `card-${idx}`, crit ? "#c0392b" : "#ff4757");
-        this.add_log(`${enemy.name}の攻撃！`, "#e67e22", true);
-        if (crit) this.add_log(" > 痛恨の一撃！！！", "#c0392b");
-        this.add_log(` > ${final_target.name}に${dmg}のダメージ`);
+
+        this.update_display(); // 1体動くたびにHPバーを更新
+
+        //  1秒待ってから「次のインデックスの敵」を呼び出す
+        setTimeout(() => {
+            this.slime_turn(index + 1);
+        }, 1000); // 1000ms = 1秒間隔
     }
-
-    this.update_display(); // 1体動くたびにHPバーを更新
-
-    //  1秒待ってから「次のインデックスの敵」を呼び出す
-    setTimeout(() => {
-        this.slime_turn(index + 1);
-    }, 1000); // 1000ms = 1秒間隔
-}
     
     //  分裂実行処理
     execute_split(index) {

@@ -23,7 +23,18 @@ class Entity {
     set_hp(value) {
         let new_hp = this._hp + value;
         this._hp = Math.max(0, Math.min(new_hp, this.max_hp));
+        if (this._hp <= 0) {
+            this._hp = 0;
+            this.clear_all_buffs(); // 強化解除メソッドを呼ぶ
+        }
     }
+    clear_all_buffs(){
+        this.buff_turns = 0;
+        this.regen_turns = 0;
+        this.is_covering = 0;
+    }
+        
+    
 
     set_mp(value) {
         let new_mp = this._mp + value;
