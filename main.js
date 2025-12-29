@@ -808,12 +808,15 @@ window.onload = () => {
     const overlay = document.getElementById('start-overlay');
 
     startBtn.onclick = () => {
+        // 1. 真っ先に AudioContext を叩き起こす（これが最優先）
+        game.bgm.initContext();
+        
         overlay.style.display = 'none';
         
-        // ★ ここで AudioContext を作成し、resume する
-        game.bgm.initContext(); 
-        
-        game.bgm.start(); 
-        game.add_log("--- バトル開始 ---", "#f1c40f");
+        // 2. Androidの内部処理待ちとして少しだけ（100ms）待ってから再生
+        setTimeout(() => {
+            game.bgm.start();
+            game.add_log("--- バトル開始 ---", "#f1c40f");
+        }, 100);
     };
 };

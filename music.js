@@ -14,17 +14,21 @@ class BattleBGM {
 
     initContext() {
         if (!this.ctx) {
-            // window単位で一つだけ保持するようにする（Android対策）
-            if (!window.globalAudioContext) {
-                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-                window.globalAudioContext = new AudioContextClass();
-            }
-            this.ctx = window.globalAudioContext;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AudioContextClass();
         }
-        // Androidでは「今から音を出すよ」と毎回 resume を呼ぶのが安全
+        // Android/iOS対策: ユーザー操作の中で明示的にresumeする
         if (this.ctx.state === 'suspended') {
             this.ctx.resume();
         }
+
+        // ★Android Chrome対策: 最初のクリック時に無音を鳴らして「音声許可」を確定させる
+        const dummyOsc = this.ctx.createOscillator();
+        const dummyGain = this.ctx.createGain();
+        dummyGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        dummyOsc.connect(dummyGain).connect(this.ctx.destination);
+        dummyOsc.start(0);
+        dummyOsc.stop(0.1);
     }
 
     async loadMidiFromFile(file) {
@@ -88,7 +92,7 @@ class BattleBGM {
     }
 
     playNote(freq, startTime, vol) {
-        if (startTime < this.ctx.currentTime) return;
+        if (!this.ctx || startTime < this.ctx.currentTime) return;
 
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
@@ -101,14 +105,11 @@ class BattleBGM {
         g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
         osc.connect(g).connect(this.ctx.destination);
-        
-        // ★ 根本的な解決策：音源を管理リストに入れる
         osc.start(startTime);
         osc.stop(startTime + duration);
-        
-        this.activeSources.push(osc);
 
-        // 音が鳴り終わったら配列から削除してメモリを解放
+        // 停止できるようにリストに保存
+        this.activeSources.push(osc);
         osc.onended = () => {
             this.activeSources = this.activeSources.filter(s => s !== osc);
         };
@@ -173,6 +174,7 @@ class BattleBGM {
  
     // 凱旋のループBGM：落ち着いた気品のあるリザルト曲
     playVictoryLoop() {
+        this.stop(); // 既存のBGMを止める
         this.isPlaying = true;
         const loop = () => {
             if (!this.isPlaying) return;
