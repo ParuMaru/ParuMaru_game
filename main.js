@@ -1,3 +1,26 @@
+function playGlobalSE(freqs, duration, type = "triangle", vol = 0.05) {
+    // music.jsで作成されるはずの共通コンテキストを取得
+    const ctx = window.globalAudioContext;
+    if (!ctx) return; 
+    if (ctx.state === 'suspended') ctx.resume();
+
+    const startTime = ctx.currentTime;
+    freqs.forEach(f => {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f, startTime);
+        osc.frequency.exponentialRampToValueAtTime(f / 2, startTime + duration);
+
+        g.gain.setValueAtTime(vol, startTime);
+        g.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
+
+        osc.connect(g).connect(ctx.destination);
+        osc.start(startTime);
+        osc.stop(startTime + duration);
+    });
+}
+
 class BattleManager {
     constructor() {
         this.bgm = new BattleBGM();
@@ -149,6 +172,7 @@ class BattleManager {
         
         if (this.enemies.every(e => !e.is_alive())) {
             this.hide_all_command_btns();
+            this.bgm.stop();
             document.getElementById('turn-label').innerText = "VICTORY!!";
             this.bgm.playVictoryFanfare();
             this.effects.enemyDeath('enemy-target');
@@ -784,12 +808,12 @@ window.onload = () => {
     const overlay = document.getElementById('start-overlay');
 
     startBtn.onclick = () => {
-        overlay.style.display = 'none'; // スタート画面を消す
+        overlay.style.display = 'none';
         
-        // すでに preloadMidi で解析は終わっているので、流すだけ
+        // ★ ここで AudioContext を作成し、resume する
+        game.bgm.initContext(); 
+        
         game.bgm.start(); 
-        
-        // 最初のログを表示（既存の処理がある場合）
         game.add_log("--- バトル開始 ---", "#f1c40f");
     };
 };

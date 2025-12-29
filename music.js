@@ -8,14 +8,22 @@ class BattleBGM {
         this.fixedBpm = 220;
         this.totalDuration = 0; // 曲の長さを保存
         this.loopTimer = null;   // ループ用のタイマー
-        
-        
+        // 現在スケジュールされている音を保持する配列
+        this.activeSources = [];
     }
 
     initContext() {
         if (!this.ctx) {
-            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            this.ctx = new AudioContextClass();
+            // window単位で一つだけ保持するようにする（Android対策）
+            if (!window.globalAudioContext) {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                window.globalAudioContext = new AudioContextClass();
+            }
+            this.ctx = window.globalAudioContext;
+        }
+        // Androidでは「今から音を出すよ」と毎回 resume を呼ぶのが安全
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
         }
     }
 
@@ -93,8 +101,17 @@ class BattleBGM {
         g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
         osc.connect(g).connect(this.ctx.destination);
+        
+        // ★ 根本的な解決策：音源を管理リストに入れる
         osc.start(startTime);
         osc.stop(startTime + duration);
+        
+        this.activeSources.push(osc);
+
+        // 音が鳴り終わったら配列から削除してメモリを解放
+        osc.onended = () => {
+            this.activeSources = this.activeSources.filter(s => s !== osc);
+        };
     }
 
     start() {
@@ -120,17 +137,38 @@ class BattleBGM {
         const waitTime = 2.0;
         
         this.loopTimer = setTimeout(() => {
+            // 実行時に再生フラグが false なら何もしない
             if (this.isPlaying) {
                 console.log("ループ再生開始");
                 this.start();
+            } else {
+                console.log("再生フラグがオフのためループを阻止しました");
             }
-        }, (this.totalDuration + waitTime) * 1000); // 秒をミリ秒に変換
+        }, (this.totalDuration + waitTime) * 1000);
     }
 
     stop() {
         this.isPlaying = false;
-        if (this.loopTimer) clearTimeout(this.loopTimer);
-        // ctx.close() は呼ばず、音のスケジュールを管理するフラグだけ下ろす
+        
+        // 1. ループ用のタイマーを止める
+        if (this.loopTimer) {
+            clearTimeout(this.loopTimer);
+            this.loopTimer = null;
+        }
+
+        // 2. ★ 根本的解決：スケジュール済みの全ての音を物理的に止める
+        console.log(`停止中... 予約済みの音数: ${this.activeSources.length}`);
+        this.activeSources.forEach(source => {
+            try {
+                source.stop();     // スケジュールされた再生を中止
+                source.disconnect(); // 接続を解除
+            } catch (e) {
+                // すでに再生終了しているものは無視
+            }
+        });
+        this.activeSources = []; // リストを空にする
+
+        console.log("BGMの全スケジュールをキャンセルしました");
     }
  
     // 凱旋のループBGM：落ち着いた気品のあるリザルト曲
@@ -178,10 +216,6 @@ class BattleBGM {
         this.isPlaying = false;
         if (this.loopTimer) clearTimeout(this.loopTimer);
         
-        if (this.ctx) { 
-            try { await this.ctx.close(); } catch(e) {}
-            this.ctx = null; 
-        }
 
         this.initContext();
         if (this.ctx.state === 'suspended') await this.ctx.resume();
