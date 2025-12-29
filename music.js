@@ -6,9 +6,10 @@ class BattleBGM {
         this.isPlaying = false;
         this.allNotes = [];
         this.fixedBpm = 220;
-        this.totalDuration = 0; // 曲の長さを保存
-        this.loopTimer = null;   // ループ用のタイマー
-        // 現在スケジュールされている音を保持する配列
+        this.totalDuration = 0;
+        this.schedulerTimer = null;
+        this.nextNoteIndex = 0;
+        this.startTime = 0;
         this.activeSources = [];
     }
 
@@ -17,18 +18,92 @@ class BattleBGM {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
             this.ctx = new AudioContextClass();
         }
-        // Android/iOS対策: ユーザー操作の中で明示的にresumeする
-        if (this.ctx.state === 'suspended') {
-            this.ctx.resume();
+        if (this.ctx.state === 'suspended') this.ctx.resume();
+        // 許可確定用のダミー音
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        g.gain.setValueAtTime(0, this.ctx.currentTime);
+        osc.connect(g).connect(this.ctx.destination);
+        osc.start(0);
+        osc.stop(0.001);
+    }
+
+    playNote(freq, time, vol) {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(freq, time);
+        const duration = 0.35;
+        g.gain.setValueAtTime(0, time);
+        g.gain.linearRampToValueAtTime(vol * 0.2, time + 0.002);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + duration);
+        osc.connect(g).connect(this.ctx.destination);
+        osc.start(time);
+        osc.stop(time + duration);
+        this.activeSources.push(osc);
+        osc.onended = () => { this.activeSources = this.activeSources.filter(s => s !== osc); };
+    }
+
+    // ★ 逐次予約システム（Scheduler）
+    start() {
+        this.initContext();
+        this.stop(); // 二重再生防止
+        this.isPlaying = true;
+        this.nextNoteIndex = 0;
+        this.startTime = this.ctx.currentTime + 0.2; // 0.2秒のタメを作る
+        this.schedule();
+    }
+
+    schedule() {
+        if (!this.isPlaying) return;
+
+        // 常に「今の1秒先」までの音を予約し続ける
+        const lookAhead = 1.0; 
+        const currentTime = this.ctx.currentTime - this.startTime;
+
+        while (this.nextNoteIndex < this.allNotes.length && 
+               this.allNotes[this.nextNoteIndex].time < currentTime + lookAhead) {
+            const note = this.allNotes[this.nextNoteIndex];
+            this.playNote(note.freq, this.startTime + note.time, 0.1);
+            this.nextNoteIndex++;
         }
 
-        // ★Android Chrome対策: 最初のクリック時に無音を鳴らして「音声許可」を確定させる
-        const dummyOsc = this.ctx.createOscillator();
-        const dummyGain = this.ctx.createGain();
-        dummyGain.gain.setValueAtTime(0, this.ctx.currentTime);
-        dummyOsc.connect(dummyGain).connect(this.ctx.destination);
-        dummyOsc.start(0);
-        dummyOsc.stop(0.1);
+        // 全ての音を出し切ったらループ処理
+        if (this.nextNoteIndex >= this.allNotes.length) {
+            this.nextNoteIndex = 0;
+            this.startTime += this.totalDuration + 0.5; // 曲の長さ分ずらしてループ
+        }
+
+        // 200ミリ秒ごとに次の音がないかチェックしに行く
+        this.schedulerTimer = setTimeout(() => this.schedule(), 200);
+    }
+
+    stop() {
+        this.isPlaying = false;
+        if (this.schedulerTimer) clearTimeout(this.schedulerTimer);
+        this.activeSources.forEach(s => { try { s.stop(); s.disconnect(); } catch(e){} });
+        this.activeSources = [];
+    }
+
+    // ファンファーレ（一回きりなので一気に予約でOK）
+    playVictoryFanfare() {
+        this.stop();
+        this.initContext();
+        const now = this.ctx.currentTime + 0.1;
+        const play = (freqs, start, duration, vol) => {
+            freqs.forEach(f => this.playNote(f, start, vol));
+        };
+        const s = 0.11;
+        const C5=523.2, G4=392.0, E4=329.6, Ab4=415.3, Bb4=466.2, F4=349.2, D4=293.7;
+        play([C5, G4, E4], now, 0.08, 0.12);
+        play([C5, G4, E4], now + s, 0.08, 0.12);
+        play([C5, G4, E4], now + s * 2, 0.08, 0.12);
+        play([C5, G4, E4], now + s * 3, 0.4, 0.15);
+        play([Ab4, 311.1, 207.6], now + 0.8, 0.4, 0.12);
+        play([Bb4, 349.2, 233.1], now + 1.2, 0.4, 0.12);
+        play([C5, G4, E4], now + 1.8, 0.12, 0.1);
+        play([Bb4, F4, D4], now + 2.15, 0.12, 0.1);
+        play([C5, G4, E4], now + 2.27, 2.5, 0.12);
     }
 
     async loadMidiFromFile(file) {
@@ -90,197 +165,6 @@ class BattleBGM {
             else if (status === 0xFF) { offset++; const metaLen = data.getUint8(offset++); offset += metaLen; }
         }
     }
-
-    playNote(freq, startTime, vol) {
-        if (!this.ctx || startTime < this.ctx.currentTime) return;
-
-        const osc = this.ctx.createOscillator();
-        const g = this.ctx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(freq, startTime);
-
-        const duration = 0.35; 
-        g.gain.setValueAtTime(0, startTime);
-        g.gain.linearRampToValueAtTime(vol * 0.2, startTime + 0.002); 
-        g.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
-
-        osc.connect(g).connect(this.ctx.destination);
-        osc.start(startTime);
-        osc.stop(startTime + duration);
-
-        // 停止できるようにリストに保存
-        this.activeSources.push(osc);
-        osc.onended = () => {
-            this.activeSources = this.activeSources.filter(s => s !== osc);
-        };
-    }
-
-    start() {
-        if (this.allNotes.length === 0) return;
-        this.initContext();
-        this.isPlaying = true;
-        if (this.ctx.state === 'suspended') this.ctx.resume();
-
-        const firstSoundTime = this.allNotes[0].time;
-        const startTime = this.ctx.currentTime + 0.1;
-
-        // 全音符を予約
-        this.allNotes.forEach(note => {
-            const pTime = startTime + (note.time - firstSoundTime);
-            if (pTime >= this.ctx.currentTime) {
-                this.playNote(note.freq, pTime, note.velocity);
-            }
-        });
-
-        // 【ループ処理】
-        // 全音符が鳴り終わる頃（totalDuration）に、自分自身（start）をもう一度呼ぶ
-        if (this.loopTimer) clearTimeout(this.loopTimer);
-        const waitTime = 2.0;
-        
-        this.loopTimer = setTimeout(() => {
-            // 実行時に再生フラグが false なら何もしない
-            if (this.isPlaying) {
-                console.log("ループ再生開始");
-                this.start();
-            } else {
-                console.log("再生フラグがオフのためループを阻止しました");
-            }
-        }, (this.totalDuration + waitTime) * 1000);
-    }
-
-    stop() {
-        this.isPlaying = false;
-        
-        // 1. ループ用のタイマーを止める
-        if (this.loopTimer) {
-            clearTimeout(this.loopTimer);
-            this.loopTimer = null;
-        }
-
-        // 2. ★ 根本的解決：スケジュール済みの全ての音を物理的に止める
-        console.log(`停止中... 予約済みの音数: ${this.activeSources.length}`);
-        this.activeSources.forEach(source => {
-            try {
-                source.stop();     // スケジュールされた再生を中止
-                source.disconnect(); // 接続を解除
-            } catch (e) {
-                // すでに再生終了しているものは無視
-            }
-        });
-        this.activeSources = []; // リストを空にする
-
-        console.log("BGMの全スケジュールをキャンセルしました");
-    }
- 
-    // 凱旋のループBGM：落ち着いた気品のあるリザルト曲
-    playVictoryLoop() {
-        this.stop(); // 既存のBGMを止める
-        this.isPlaying = true;
-        const loop = () => {
-            if (!this.isPlaying) return;
-            const now = this.ctx.currentTime;
-            const beat = 0.75; // BPM 80相当のゆったりしたテンポ
-
-            const playSoft = (f, start, vol = 0.03, type = "sine") => {
-                const osc = this.ctx.createOscillator();
-                const g = this.ctx.createGain();
-                osc.type = type;
-                osc.frequency.setValueAtTime(f, start);
-                g.gain.setValueAtTime(0, start);
-                g.gain.linearRampToValueAtTime(vol, start + 0.2);
-                g.gain.exponentialRampToValueAtTime(0.0001, start + beat * 4);
-                osc.connect(g).connect(this.ctx.destination);
-                osc.start(start);
-                osc.stop(start + beat * 4.1);
-            };
-
-            // 幻想的な響き (C -> F -> Bb -> G)
-            const chords = [
-                [261.6, 329.6, 392.0], // C
-                [349.2, 440.0, 523.2], // F
-                [233.1, 293.7, 349.2], // Bb
-                [196.0, 246.9, 293.7]  // G
-            ];
-
-            chords.forEach((chord, i) => {
-                const time = now + i * (beat * 2);
-                chord.forEach(f => playSoft(f, time, 0.03, "triangle"));
-                playSoft(chord[2] * 2, time + beat, 0.02, "sine"); // 高音の煌めき
-            });
-            
-            if (this.loopTimer) clearTimeout(this.loopTimer);
-            this.loopTimer = setTimeout(loop, beat * 8 * 1000);
-        };
-        loop();
-    }
-
-    async playVictoryFanfare() {
-        this.isPlaying = false;
-        if (this.loopTimer) clearTimeout(this.loopTimer);
-        
-
-        this.initContext();
-        if (this.ctx.state === 'suspended') await this.ctx.resume();
-        
-        const now = this.ctx.currentTime + 0.1;
-
-        const playInstr = (freqs, start, duration, vol = 0.1) => {
-            freqs.forEach((f) => {
-                const osc = this.ctx.createOscillator();
-                const g = this.ctx.createGain();
-                const filter = this.ctx.createBiquadFilter();
-
-                osc.type = "sawtooth";
-                osc.frequency.setValueAtTime(f, start);
-                
-                filter.type = "lowpass";
-                filter.frequency.setValueAtTime(2500, start);
-
-                g.gain.setValueAtTime(0, start);
-                g.gain.linearRampToValueAtTime(vol, start + 0.03); 
-                g.gain.linearRampToValueAtTime(vol * 0.7, start + duration);
-                g.gain.exponentialRampToValueAtTime(0.0001, start + duration + 0.4);
-                
-                osc.connect(filter).connect(g).connect(this.ctx.destination);
-                osc.start(start);
-                osc.stop(start + duration + 0.5);
-            });
-        };
-
-        const C4=261.6, D4=293.7, E4=329.6, F4=349.2, G4=392.0, Ab4=415.3, Bb4=466.2, C5=523.2;
-        const s = 0.11; // 16分音符
-
-        // --- 1. ドドドドー ---
-        playInstr([C5, G4, E4], now + 0, 0.08, 0.12);
-        playInstr([C5, G4, E4], now + s, 0.08, 0.12);
-        playInstr([C5, G4, E4], now + s * 2, 0.08, 0.12);
-        playInstr([C5, G4, E4], now + s * 3, 0.4, 0.15); 
-
-        // --- 2. ラ♭ー ・ シ♭ー ---
-        const t2 = now + 0.8;
-        playInstr([Ab4, 311.1, 207.6], t2, 0.4, 0.12); // Ab, Eb, Ab(low)
-        playInstr([Bb4, 349.2, 233.1], t2 + 0.5, 0.4, 0.12); // Bb, F, Bb(low)
-
-       // --- 3. ドっシ♭ドー！ (タメ強調・シ♭しっかり版) ---
-        const t3 = t2 + 1.0;
-        const pause = 0.3; // タメをしっかりとる（0.3秒）
-
-        // 最初の「ド」
-        playInstr([C5, G4, E4], t3, 0.12, 0.12);       
-        
-        // 「シ♭」：しっかり音の長さを確保（0.12）しつつ、タメた後に鳴らす
-        playInstr([Bb4, F4, D4], t3 + pause, 0.12, 0.12);  
-        
-        // 最後の「ドー！」：シ♭の直後に力強く解決
-        playInstr([C5, G4, E4, 261.6], t3 + pause + 0.12, 2.5, 0.12);
-
-        // 最後の「ドー！」が鳴り響いている最中、あるいは終わる頃にループへ移行
-        this.loopTimer = setTimeout(() => {
-            this.playVictoryLoop();
-        }, 4000); // 4秒後にループBGM開始
-    }
-    
-    
     
 }
 
