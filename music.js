@@ -11,6 +11,8 @@ class BattleBGM {
         this.nextNoteIndex = 0;
         this.startTime = 0;
         this.activeSources = [];
+        // ★ 勝利ループ管理用
+        this.victoryLoopTimer = null;
     }
 
     initContext() {
@@ -19,7 +21,6 @@ class BattleBGM {
             this.ctx = new AudioContextClass();
         }
         if (this.ctx.state === 'suspended') this.ctx.resume();
-        // 許可確定用のダミー音
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         g.gain.setValueAtTime(0, this.ctx.currentTime);
@@ -27,8 +28,34 @@ class BattleBGM {
         osc.start(0);
         osc.stop(0.001);
     }
+    
+    playInstr(freqs, start, duration, vol, type = "sawtooth") {
+        if (!this.ctx || start < this.ctx.currentTime) return;
+        freqs.forEach(f => {
+            const osc = this.ctx.createOscillator();
+            const g = this.ctx.createGain();
+            const filter = this.ctx.createBiquadFilter();
+
+            osc.type = type;
+            osc.frequency.setValueAtTime(f, start);
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(2500, start);
+
+            g.gain.setValueAtTime(0, start);
+            g.gain.linearRampToValueAtTime(vol, start + 0.02); 
+            g.gain.linearRampToValueAtTime(0, start + duration + 0.05); 
+
+            osc.connect(filter).connect(g).connect(this.ctx.destination);
+            osc.start(start);
+            osc.stop(start + duration + 0.1); 
+            
+            this.activeSources.push(osc);
+            osc.onended = () => { this.activeSources = this.activeSources.filter(s => s !== osc); };
+        });
+    }
 
     playNote(freq, time, vol) {
+        if (!this.ctx) return;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         osc.type = "sawtooth";
@@ -44,20 +71,17 @@ class BattleBGM {
         osc.onended = () => { this.activeSources = this.activeSources.filter(s => s !== osc); };
     }
 
-    // ★ 逐次予約システム（Scheduler）
     start() {
         this.initContext();
-        this.stop(); // 二重再生防止
+        this.stop(); 
         this.isPlaying = true;
         this.nextNoteIndex = 0;
-        this.startTime = this.ctx.currentTime + 0.2; // 0.2秒のタメを作る
+        this.startTime = this.ctx.currentTime + 0.2;
         this.schedule();
     }
 
     schedule() {
         if (!this.isPlaying) return;
-
-        // 常に「今の1秒先」までの音を予約し続ける
         const lookAhead = 1.0; 
         const currentTime = this.ctx.currentTime - this.startTime;
 
@@ -68,44 +92,107 @@ class BattleBGM {
             this.nextNoteIndex++;
         }
 
-        // 全ての音を出し切ったらループ処理
         if (this.nextNoteIndex >= this.allNotes.length) {
             this.nextNoteIndex = 0;
-            this.startTime += this.totalDuration + 0.5; // 曲の長さ分ずらしてループ
+            this.startTime += this.totalDuration + 0.5;
         }
-
-        // 200ミリ秒ごとに次の音がないかチェックしに行く
         this.schedulerTimer = setTimeout(() => this.schedule(), 200);
     }
 
     stop() {
         this.isPlaying = false;
         if (this.schedulerTimer) clearTimeout(this.schedulerTimer);
+        // ★ 勝利ループも確実に止める
+        if (this.victoryLoopTimer) {
+            clearTimeout(this.victoryLoopTimer);
+            this.victoryLoopTimer = null;
+        }
         this.activeSources.forEach(s => { try { s.stop(); s.disconnect(); } catch(e){} });
         this.activeSources = [];
     }
 
-    // ファンファーレ（一回きりなので一気に予約でOK）
     playVictoryFanfare() {
-        this.stop();
+        this.stop(); // ここでisPlaying = false、タイマーもクリア
         this.initContext();
+        this.isPlaying = false;
+
         const now = this.ctx.currentTime + 0.1;
-        const play = (freqs, start, duration, vol) => {
-            freqs.forEach(f => this.playNote(f, start, vol));
-        };
+        const C4=261.6, E4=329.6, G4=392.0, Ab4=415.3, Bb4=466.2, C5=523.2, F4=349.2, D4=293.7;
         const s = 0.11;
-        const C5=523.2, G4=392.0, E4=329.6, Ab4=415.3, Bb4=466.2, F4=349.2, D4=293.7;
-        play([C5, G4, E4], now, 0.08, 0.12);
-        play([C5, G4, E4], now + s, 0.08, 0.12);
-        play([C5, G4, E4], now + s * 2, 0.08, 0.12);
-        play([C5, G4, E4], now + s * 3, 0.4, 0.15);
-        play([Ab4, 311.1, 207.6], now + 0.8, 0.4, 0.12);
-        play([Bb4, 349.2, 233.1], now + 1.2, 0.4, 0.12);
-        play([C5, G4, E4], now + 1.8, 0.12, 0.1);
-        play([Bb4, F4, D4], now + 2.15, 0.12, 0.1);
-        play([C5, G4, E4], now + 2.27, 2.5, 0.12);
+        const v = 0.05; // ファンファーレ音量
+
+        // 1. メインフレーズ
+        this.playInstr([C5, G4, E4], now + 0, 0.1, v);
+        this.playInstr([C5, G4, E4], now + s, 0.1, v);
+        this.playInstr([C5, G4, E4], now + s * 2, 0.1, v);
+        this.playInstr([C5, G4, E4], now + s * 3, 0.4, v); 
+        this.playInstr([Ab4, 311.1, 207.6], now + 0.8, 0.4, v);
+        this.playInstr([Bb4, 349.2, 233.1], now + 1.2, 0.4, v);
+
+        const t3 = now + 1.8;
+        this.playInstr([C5, G4, E4], t3, 0.2, v);
+        this.playInstr([Bb4, F4, D4], t3 + 0.35, 0.12, v);
+        this.playInstr([C5, G4, E4, 261.6], t3 + 0.47, 2.5, v + 0.02);
+
+        // ループを開始
+        this.startVictoryLoop(now + 3.0);
+    }
+    
+    startVictoryLoop(startTime) {
+        const self = this;
+        // ループ専用のカウンター（展開を作る用）
+        let loopCount = 0;
+
+        const scheduleNext = (time) => {
+            // 他の曲が始まったら確実に止める
+            if (self.isPlaying) return;
+
+            // 周波数定義
+            const C3=130.8, G3=196.0, C4=261.6, D4=293.7, E4=329.6, F4=349.2, G4=392.0, A4=440.0, B4=493.8, C5=523.2;
+
+            // --- A. 勇壮なベースライン（0.4秒刻みでリズムを作る） ---
+            for (let i = 0; i < 8; i++) {
+                const t = time + i * 0.4;
+                // ドッ・ドッ・ドッ・ドッ
+                self.playInstr([C3], t, 0.2, 0.05, "square"); 
+                // オクターブ上の跳ねる音を追加
+                self.playInstr([C4], t + 0.2, 0.1, 0.03, "square");
+            }
+
+            // --- B. 凱旋メロディ（0〜3.2秒の固定ループ） ---
+            // 昔のRPGのフィールドや勝利後のような力強い旋律
+            const melody = [
+                { f: [C5, G4], d: 0, dur: 0.3 },
+                { f: [C5, G4], d: 0.4, dur: 0.3 },
+                { f: [G4], d: 0.8, dur: 0.3 },
+                { f: [A4], d: 1.2, dur: 0.3 },
+                { f: [B4], d: 1.6, dur: 0.6 },
+                { f: [C5], d: 2.4, dur: 0.8 }
+            ];
+
+            melody.forEach(m => {
+                // sawtoothとsquareを重ねて音を太くする
+                self.playInstr(m.f, time + m.d, m.dur, 0.06, "sawtooth");
+                self.playInstr(m.f, time + m.d, m.dur, 0.03, "square");
+            });
+
+            // --- C. ハーモニー（和音の厚み） ---
+            self.playInstr([E4, G4], time, 1.5, 0.03, "triangle");
+            self.playInstr([F4, A4], time + 1.6, 1.5, 0.03, "triangle");
+
+            // 3.2秒ごとに次の「3.2秒分」を予約し続ける
+            // タイマーの時間を少し早める（3200msではなく3000ms）ことで、Androidのラグによる音切れを防止
+            self.victoryLoopTimer = setTimeout(() => {
+                // contextのcurrentTimeを使って、常に「未来」の時間を指定
+                const nextStartTime = Math.max(time + 3.2, self.ctx.currentTime + 0.1);
+                scheduleNext(nextStartTime);
+            }, 3000);
+        };
+
+        scheduleNext(startTime);
     }
 
+    // loadMidiFromFile, parseTrack などの既存メソッドはそのまま維持
     async loadMidiFromFile(file) {
         const buffer = await file.arrayBuffer();
         const data = new DataView(buffer);
@@ -124,8 +211,6 @@ class BattleBGM {
         
         if (this.allNotes.length > 0) {
             this.allNotes.sort((a, b) => a.time - b.time);
-            
-            // 【重要】曲の総演奏時間を計算
             const firstSoundTime = this.allNotes[0].time;
             const lastSoundTime = this.allNotes[this.allNotes.length - 1].time;
             this.totalDuration = lastSoundTime - firstSoundTime;
@@ -165,7 +250,4 @@ class BattleBGM {
             else if (status === 0xFF) { offset++; const metaLen = data.getUint8(offset++); offset += metaLen; }
         }
     }
-    
 }
-
-
