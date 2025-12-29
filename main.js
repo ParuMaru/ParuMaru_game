@@ -1,5 +1,7 @@
 class BattleManager {
     constructor() {
+        this.bgm = new BattleBGM();
+        this.preloadMidi();
         this.party = [
             new Hero("勇者ぱるむ"),
             new Wizard("魔法使いはな"),
@@ -26,6 +28,21 @@ class BattleManager {
             if (e.key === 'p' || e.key === 'P') {this.debug_damage_party();}
             if (e.key === 'm' || e.key === 'M') {this.debug_mp_zero();}
         });
+    }
+    
+    async preloadMidi() {
+        try {
+            // 同じフォルダにある "endymion.mid" を取得
+            const response = await fetch('endymion.mid');
+            const blob = await response.blob();
+            const file = new File([blob], "endymion.mid");
+
+            // 解析を実行
+            await this.bgm.loadMidiFromFile(file);
+            console.log("BGMの自動読み込みが完了しました");
+        } catch (error) {
+            console.error("MIDIの読み込みに失敗しました:", error);
+        }
     }
     
     debug_damage_enemies() {
@@ -133,13 +150,12 @@ class BattleManager {
         if (this.enemies.every(e => !e.is_alive())) {
             this.hide_all_command_btns();
             document.getElementById('turn-label').innerText = "VICTORY!!";
+            this.bgm.playVictoryFanfare();
             this.effects.enemyDeath('enemy-target');
             this.add_log(`★ 敵をすべて討伐した！`, "#f1c40f", true);
             setTimeout(() => {
                 this.add_log("平和が訪れた...", "#ecf0f1");
-                setTimeout(() => {
-                    if(confirm("もう一度戦いますか？")) location.reload();
-                }, 500);
+                this.show_btn(0, "もう一度戦う", "#2ecc71", () => location.reload());
             }, 1000);
             return;
         }
@@ -745,4 +761,18 @@ class BattleManager {
     }
 }
 
-window.onload = () => { new BattleManager(); };
+window.onload = () => {
+    const game = new BattleManager();
+    const startBtn = document.getElementById('start-button');
+    const overlay = document.getElementById('start-overlay');
+
+    startBtn.onclick = () => {
+        overlay.style.display = 'none'; // スタート画面を消す
+        
+        // すでに preloadMidi で解析は終わっているので、流すだけ
+        game.bgm.start(); 
+        
+        // 最初のログを表示（既存の処理がある場合）
+        game.add_log("--- バトル開始 ---", "#f1c40f");
+    };
+};

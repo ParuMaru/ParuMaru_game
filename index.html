@@ -7,7 +7,13 @@
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
+    
+    <div id="start-overlay">
+        <h1 style="color: white; margin-bottom: 30px;">BATTLE</h1>
+        <button id="start-button">戦闘開始</button>
+        <p style="color: #bdc3c7; margin-top: 20px; font-size: 12px;">※クリックすると音が流れます</p>
+    </div>
+    
     <div id="canvas-area">
         <div class="enemy-sprite-container" id="enemy-target"></div>
     </div>
@@ -54,6 +60,7 @@
 
     <script src="entities.js"></script>
     <script src="effects.js"></script>
+    <script src="music.js"></script>
     <script src="main.js"></script>
 </body>
 </html>

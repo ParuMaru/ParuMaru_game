@@ -23,6 +23,32 @@ body {
     }
 }
 
+/* --- スタート画面のレイアウト --- */
+#start-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+#start-button {
+    padding: 20px 50px;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    background: #e74c3c;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    box-shadow: 0 5px 0 #c0392b;
+}
+/* ...その他のスタイル... */
+
 
 /* 全体の幅をスマホ・PC両対応に */
 #canvas-area, #log, #status-area, #command-area {
@@ -384,3 +410,4 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
     0% { background-position: 0 0; opacity: 1; }
     100% { background-position: -10px -50px; opacity: 0; }
 }
+
