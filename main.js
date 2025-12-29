@@ -287,7 +287,11 @@ class BattleManager {
 
         if (action_type === "attack") {
             const [dmg, crit] = member.attack(target);
-            this.effects.slashEffect(targetId);
+            if (member instanceof Hero){
+                this.effects.slashEffect(targetId);
+            }else{
+                this.effects.magicExplosion(targetId);
+            }
             this.effects.damagePopup(dmg, targetId, crit ? "#f1c40f" : "#ff4757");
             if (crit) this.effects.flash("#fff");
             this.add_log(`${member.name}の攻撃！`, "#70ABDB", true);
@@ -356,6 +360,7 @@ class BattleManager {
         // 回復量の計算
         // 基本は回復力(rec)の約1倍。魔法ごとに倍率を変えるならここで skill.id 判定を入れる
         let multiplier = 1.0;
+        
         if (skill && skill.id === "curaga") multiplier = 2.5; // 強力な回復魔法を追加する場合
 
         let heal_val = Math.floor(member.rec * multiplier * (0.9 + Math.random() * 0.2));
@@ -521,11 +526,23 @@ class BattleManager {
             this.add_log(`${member.name}の${skill.name}！`, "#27ae60", true);
             this.party.forEach((m, i) => {
                 if (m.is_alive()) {
-                    // Entityのrecを基準に計算
-                    let h_val = Math.floor(member.rec * 1.2); 
+                    // 基本倍率（単体回復ケアルよりは少し抑えるのが一般的）
+                    let multiplier = 1.0; 
+                    if (skill.id === "medica") multiplier = 0.9; // スキル名で倍率を変える場合
+
+                    // ★ 乱数を導入 (0.9 ～ 1.1倍のバラツキ)
+                    const variance = 0.9 + Math.random() * 0.2;
+                    let h_val = Math.floor(member.rec * multiplier * variance);
+
+                    // 回復クリティカル判定
+                    if (Math.random() < 0.1) {
+                        h_val = Math.floor(h_val * 1.5);
+                    }
+
                     m.set_hp(h_val);
                     this.effects.healEffect(`card-${i}`);
                     this.effects.damagePopup(`+${h_val}`, `card-${i}`, "#2ecc71");
+                    this.add_log(` > ${m.name}を${h_val}回復`);
                 }
             });
         }
