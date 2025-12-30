@@ -672,70 +672,99 @@ class BattleManager {
      * 敵側のターン処理（再帰的に全敵を実行）
      */
     slime_turn(index = 0) {
-        if (index >= this.enemies.length) {
-            this.party.forEach(m => m.is_covering = false);
-            this.current_turn_index = 0;
-            this.update_display();
+    if (index >= this.enemies.length) {
+        // 敵の全行動終了時に「かばう」を解除
+        this.party.forEach(m => m.is_covering = false);
+        this.current_turn_index = 0;
+        this.update_display();
 
-            if (this.party.every(m => !m.is_alive())) {
-                setTimeout(() => { alert("パーティは全滅しました..."); location.reload(); }, 200);
-            } else {
-                this.next_player_step();
-            }
-            return;
-        }
-
-        const enemy = this.enemies[index];
-        const alive_members = this.party.filter(m => m.is_alive());
-
-        if (!enemy.is_alive() || alive_members.length === 0) {
-            this.slime_turn(index + 1);
-            return;
-        }
-
-        const action_roll = Math.random();
-        const hero = this.party[0];
-
-        if (action_roll < 0.2) {
-            const h_val = enemy.heal(enemy);
-            this.effects.healEffect(`enemy-sprite-${index}`);
-            this.add_log(`${enemy.name}の再生！ HP${h_val}回復`, "#e67e22");
-        } else if (action_roll < 0.5) {
-            this.add_log(`${enemy.name}の「のしかかり」！`, "#e74c3c", true);
-            this.bgm.playDamage();
-            this.effects.flash("rgba(231, 76, 60, 0.5)");
-            alive_members.forEach(m => {
-                let raw_dmg = Math.floor(Math.random() * 21) + 40; 
-                let dmg = Math.max(5, raw_dmg - Math.floor(m.def / 2));
-                if (hero.is_alive() && hero.is_covering && m !== hero) dmg = Math.floor(dmg * 0.5);
-                m.set_hp(-dmg);
-                const idx = this.party.indexOf(m);
-                this.effects.slashEffect(`card-${idx}`);
-                this.effects.damagePopup(dmg, `card-${idx}`);
-                this.add_log(` > ${m.name}に${dmg}ダメ`);
-            });
+        if (this.party.every(m => !m.is_alive())) {
+            setTimeout(() => { alert("パーティは全滅しました..."); location.reload(); }, 200);
         } else {
-            const target = alive_members[Math.floor(Math.random() * alive_members.length)];
-            let [dmg, crit] = enemy.attack(target);
-            let final_target = target;
-            if (hero.is_alive() && hero.is_covering && target !== hero) {
-                final_target = hero;
-                let [hd, hc] = enemy.attack(hero);
-                dmg = Math.floor(hd * 0.5); crit = hc;
-                this.add_log(` > ${hero.name}が仲間の盾になった！`, "#3498db");
-            }
-            final_target.set_hp(-dmg);
-            this.bgm.playDamage();
-            const idx = this.party.indexOf(final_target);
-            this.effects.slashEffect(`card-${idx}`);
-            this.effects.damagePopup(dmg, `card-${idx}`, crit ? "#c0392b" : "#ff4757");
-            this.add_log(`${enemy.name}の攻撃！`, "#e67e22", true);
-            if (crit) this.add_log(" > 痛恨の一撃！！！", "#c0392b");
-            this.add_log(` > ${final_target.name}に${dmg}のダメージ`);
+            this.next_player_step();
         }
-        this.update_display(); 
-        setTimeout(() => this.slime_turn(index + 1), 1000); 
+        return;
     }
+
+    const enemy = this.enemies[index];
+    const alive_members = this.party.filter(m => m.is_alive());
+
+    if (!enemy.is_alive() || alive_members.length === 0) {
+        this.slime_turn(index + 1);
+        return;
+    }
+
+    const action_roll = Math.random();
+    const hero = this.party[0]; // 勇者
+
+    if (action_roll < 0.2) {
+        // 再生
+        const h_val = enemy.heal(enemy);
+        this.effects.healEffect(`enemy-sprite-${index}`);
+        this.add_log(`${enemy.name}の再生！ HP${h_val}回復`, "#e67e22");
+
+    } else if (action_roll < 0.5) {
+        // のしかかり（全体攻撃）
+        this.add_log(`${enemy.name}の「のしかかり」！`, "#e74c3c", true);
+        this.bgm.playDamage();
+        this.effects.flash("rgba(231, 76, 60, 0.5)");
+
+        alive_members.forEach(m => {
+            let raw_dmg = Math.floor(Math.random() * 21) + 40; 
+            let dmg = Math.max(5, raw_dmg - Math.floor(m.def / 2));
+            
+            // ★全体攻撃へのかばう適用
+            // 仲間へのダメージを肩代わりして勇者が受ける
+            let damage_receiver = m;
+            if (hero.is_alive() && hero.is_covering && m !== hero) {
+                damage_receiver = hero;
+                dmg = Math.floor(dmg * 0.8); // かばう時はダメージ軽減
+                this.add_log(` > ${hero.name}が${m.name}をかばった！`, "#3498db");
+            }
+
+            damage_receiver.set_hp(-dmg);
+            const idx = this.party.indexOf(damage_receiver);
+            this.effects.slashEffect(`card-${idx}`);
+            this.effects.damagePopup(dmg, `card-${idx}`);
+            this.add_log(` > ${damage_receiver.name}に${dmg}ダメ`);
+        });
+
+    } else {
+        // 通常攻撃
+        const target = alive_members[Math.floor(Math.random() * alive_members.length)];
+        let final_target = target;
+        let is_covering_active = false;
+
+        // かばう判定（計算前にターゲットを決定する）
+        if (hero.is_alive() && hero.is_covering && target !== hero) {
+            final_target = hero;
+            is_covering_active = true;
+        }
+
+        // 決定したターゲットに対して攻撃計算を行う
+        let [dmg, crit] = enemy.attack(final_target);
+        
+        // かばった場合はダメージを0.8にする（attackメソッド内で減った分を戻して再計算）
+        if (is_covering_active) {
+            final_target.set_hp(dmg); // attack内で減った分を一旦戻す
+            dmg = Math.floor(dmg * 0.8);
+            final_target.set_hp(-dmg); // 半減したダメージを適用
+            this.add_log(` > ${hero.name}が仲間の盾になった！`, "#3498db");
+        }
+
+        this.bgm.playDamage();
+        const idx = this.party.indexOf(final_target);
+        this.effects.slashEffect(`card-${idx}`);
+        this.effects.damagePopup(dmg, `card-${idx}`, crit ? "#c0392b" : "#ff4757");
+        
+        this.add_log(`${enemy.name}の攻撃！`, "#e67e22", true);
+        if (crit) this.add_log(" > 痛恨の一撃！！！", "#c0392b");
+        this.add_log(` > ${final_target.name}に${dmg}のダメージ`);
+    }
+
+    this.update_display(); 
+    setTimeout(() => this.slime_turn(index + 1), 1000); 
+}
     
     /**
      * キングスライム専用：HP低下時に自身を消滅させ、2体の通常スライムを生成する
@@ -752,8 +781,10 @@ class BattleManager {
             this.effects.flash("#fff");
             const s1 = new Slime("スライムA", "normal");
             const s2 = new Slime("スライムB", "normal");
-            this.enemies = [s1, s2];
-            this.add_log(` > ${king.name}が2体に分裂した！`, "#f1c40f");
+            const s3 = new Slime("スライムC", "normal");
+            
+            this.enemies = [s1, s2,s3];
+            this.add_log(` > ${king.name}が3体に分裂した！`, "#f1c40f");
             this.update_display();
             
             const currentMember = this.party[this.current_turn_index];
@@ -761,12 +792,13 @@ class BattleManager {
 
             const spriteA = document.getElementById('enemy-sprite-0');
             const spriteB = document.getElementById('enemy-sprite-1');
+            const spriteC = document.getElementById('enemy-sprite-2');
             if (spriteA) spriteA.classList.add('appear-left');
-            if (spriteB) spriteB.classList.add('appear-right');
+            if (spriteC) spriteC.classList.add('appear-right');
 
             setTimeout(() => {
                 if (spriteA) spriteA.classList.remove('appear-left');
-                if (spriteB) spriteB.classList.remove('appear-right');
+                if (spriteC) spriteC.classList.remove('appear-right');
             }, 600); 
         }, 800);
     }
