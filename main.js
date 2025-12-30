@@ -24,13 +24,21 @@ function playGlobalSE(freqs, duration, type = "triangle", vol = 0.05) {
 class BattleManager {
     constructor() {
         this.bgm = new BattleBGM();
+        this.bgm.initContext();
         this.preloadMidi();
+        this.bgm.loadSE('slash', 'slash.mp3');
+        this.bgm.loadSE('magic', 'magic.mp3');
+        this.bgm.loadSE('fire', 'fire.mp3');
+        this.bgm.loadSE('heal', 'heal.mp3');
+        this.bgm.loadSE('meteor', 'meteor.mp3');
+        this.bgm.loadSE('meditation', 'meditation.mp3');
+        this.bgm.loadSE('kobu', 'kobu.mp3');
+        this.bgm.loadSE('cover', 'cover.mp3');
         this.party = [
             new Hero("勇者ぱるむ"),
             new Wizard("魔法使いはな"),
             new Healer("癒し手なつ")
         ];
-        
         this.enemies = [new Slime("キングスライム"),];
         
         this.current_turn_index = 0;
@@ -312,8 +320,10 @@ class BattleManager {
         if (action_type === "attack") {
             const [dmg, crit] = member.attack(target);
             if (member instanceof Hero){
+                this.bgm.playAttack();
                 this.effects.slashEffect(targetId);
             }else{
+                this.bgm.playMagic();
                 this.effects.magicExplosion(targetId);
             }
             this.effects.damagePopup(dmg, targetId, crit ? "#f1c40f" : "#ff4757");
@@ -328,10 +338,12 @@ class BattleManager {
 
             // メテオの時だけさらに派手にするならここ
             if (currentSkill.id === "meteor") {
+                this.bgm.playMagicMeteor();
                 this.effects.meteorEffect(targetId);
                 this.effects.damagePopup(dmg, targetId, "#4522c5");
                 this.add_log("空から巨大な隕石が降り注ぐ","#e74c3c",true);
             }else if(currentSkill.id === "fire"){
+                this.bgm.playMagicFire();
                 this.effects.fireEffect(targetId);
                 this.effects.damagePopup(dmg, targetId, "#4522c5");
             }
@@ -367,6 +379,7 @@ class BattleManager {
     }
 
     execute_heal(action_id, target) {
+        this.bgm.playHeal();
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         const targetIdx = this.party.indexOf(target);
@@ -409,6 +422,7 @@ class BattleManager {
     }
 
     execute_resurrection(target) {
+        this.bgm.playHeal();
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         const targetIdx = this.party.indexOf(target);
@@ -450,6 +464,7 @@ class BattleManager {
                 m.regen_turns = (i === this.current_turn_index) ? 4 : 3;
             }
         });
+        this.bgm.playHeal();
         this.effects.flash("#fff");
         this.add_log(`${healer.name}のいのり！`, "#8e44ad", true);
         this.add_log(" > 慈愛の心が仲間たちの傷を癒していく...");
@@ -467,6 +482,7 @@ class BattleManager {
    
 
     execute_cover() {
+        this.bgm.playCover();
         this.hide_all_command_btns();
         const hero = this.party[this.current_turn_index];
         if (hero.skill_cover()) {
@@ -477,6 +493,7 @@ class BattleManager {
     }
 
     execute_hero_skill() {
+        this.bgm.playKobu();
         this.hide_all_command_btns();
         const hero = this.party[this.current_turn_index];
 
@@ -507,6 +524,7 @@ class BattleManager {
     }
 
     execute_meditation() {
+        this.bgm.playMeditation();
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         const recover = 30;
@@ -519,6 +537,7 @@ class BattleManager {
     
     //全体攻撃・回復
     execute_all_action(skill) {
+        this.bgm.playMagicFire();
         this.hide_all_command_btns();
         const member = this.party[this.current_turn_index];
         member.set_mp(-skill.cost);
@@ -547,6 +566,7 @@ class BattleManager {
         }, 200);
     }
         else if (skill.type === "heal") {
+            this.bgm.playHeal();
             this.add_log(`${member.name}の${skill.name}！`, "#27ae60", true);
             this.party.forEach((m, i) => {
                 if (m.is_alive()) {
@@ -598,17 +618,20 @@ class BattleManager {
         const targetIdx = this.party.indexOf(target);
         if (item.id === "phoenix") {
             target.revive(Math.floor(target.max_hp * item.effect));
+            this.bgm.playHeal();
             this.effects.resurrectionEffect(`card-${targetIdx}`);
             this.add_log(`${member.name}は${item.name}を使った！`, "#e67e22");
             this.add_log(` > ${target.name}が蘇った！`);
         } else if (item.id === "potion") {
             target.set_hp(item.effect);
+            this.bgm.playHeal();
             this.effects.healEffect(`card-${targetIdx}`);
             this.effects.damagePopup(`+${item.effect}`, `card-${targetIdx}`, "#2ecc71");
             this.add_log(`${member.name}は${item.name}を使った！`, "#e67e22");
             this.add_log(` > ${target.name}のHPが${item.effect}回復した`);
         } else if (item.id === "ether") {
             target.set_mp(item.effect);
+            this.bgm.playHeal();
             this.effects.damagePopup(`+${item.effect}MP`, `card-${targetIdx}`, "#3498db");
             this.add_log(`${member.name}は${item.name}を使った！`, "#e67e22");
             this.add_log(` > ${target.name}のMPが${item.effect}回復した`);
@@ -702,6 +725,7 @@ class BattleManager {
             this.add_log(`${enemy.name}の再生！ ${h_val}回復`, "#e67e22");
         } else if (action_roll < 0.5) {
             this.add_log(`${enemy.name}の「のしかかり」！`, "#e74c3c", true);
+            this.bgm.playDamage();
             this.effects.flash("rgba(231, 76, 60, 0.5)");
             alive_members.forEach(m => {
                 let raw_dmg = Math.floor(Math.random() * 21) + 40; 
@@ -724,6 +748,7 @@ class BattleManager {
                 this.add_log(` > ${hero.name}が仲間の盾になった！`, "#3498db");
             }
             final_target.set_hp(-dmg);
+            this.bgm.playDamage();
             const idx = this.party.indexOf(final_target);
             this.effects.slashEffect(`card-${idx}`);
             this.effects.damagePopup(dmg, `card-${idx}`, crit ? "#c0392b" : "#ff4757");

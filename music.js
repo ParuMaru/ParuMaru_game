@@ -13,6 +13,33 @@ class BattleBGM {
         this.activeSources = [];
         // ★ 勝利ループ管理用
         this.victoryLoopTimer = null;
+        this.seBuffers = {}; // 複数のSEを格納するオブジェクト
+    }
+    
+    async loadSE(name, url) {
+        if (!this.ctx) this.initContext();
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            const audioBuffer = await this.ctx.decodeAudioData(arrayBuffer);
+            this.seBuffers[name] = audioBuffer;
+            console.log(`SE loaded: ${name}`);
+        } catch (e) {
+            console.error(`Failed to load SE: ${name}`, e);
+        }
+    }
+    
+    playSE(name, volume = 0.5) {
+        if (!this.ctx || !this.seBuffers[name]) return;
+
+        const source = this.ctx.createBufferSource();
+        source.buffer = this.seBuffers[name];
+
+        const gainNode = this.ctx.createGain();
+        gainNode.gain.setValueAtTime(volume, this.ctx.currentTime);
+
+        source.connect(gainNode).connect(this.ctx.destination);
+        source.start(0);
     }
 
     initContext() {
@@ -125,11 +152,11 @@ class BattleBGM {
         this.playInstr([C5, G4, E4], now + 0, 0.1, v);
         this.playInstr([C5, G4, E4], now + s, 0.1, v);
         this.playInstr([C5, G4, E4], now + s * 2, 0.1, v);
-        this.playInstr([C5, G4, E4], now + s * 3, 0.4, v); 
+        this.playInstr([C5, G4, E4], now + s * 3, 0.6, v); 
         this.playInstr([Ab4, 311.1, 207.6], now + 0.8, 0.4, v);
         this.playInstr([Bb4, 349.2, 233.1], now + 1.2, 0.4, v);
 
-        const t3 = now + 1.8;
+        const t3 = now + 1.6;
         this.playInstr([C5, G4, E4], t3, 0.2, v);
         this.playInstr([Bb4, F4, D4], t3 + 0.35, 0.12, v);
         this.playInstr([C5, G4, E4, 261.6], t3 + 0.47, 2.5, v + 0.02);
@@ -250,4 +277,33 @@ class BattleBGM {
             else if (status === 0xFF) { offset++; const metaLen = data.getUint8(offset++); offset += metaLen; }
         }
     }
+    
+    playAttack() { this.playSE('slash'); }
+    playMagic() { this.playSE('magic'); }
+    playMagicFire() { this.playSE('fire'); }
+    playMagicMeteor() { this.playSE('meteor'); }
+    playHeal() { this.playSE('heal'); }
+    playMeditation(){ this.playSE('meditation'); }
+    playKobu(){ this.playSE('kobu'); }
+    playCover(){ this.playSE('cover'); }
+
+    //  ダメージ音（鈍い衝撃音）
+    playDamage() {
+        if (!this.ctx) this.initContext();
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+
+        osc.type = "square"; // 濁った音
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(40, now + 0.2);
+
+        g.gain.setValueAtTime(0.3, now);
+        g.gain.linearRampToValueAtTime(0, now + 0.2);
+
+        osc.connect(g).connect(this.ctx.destination);
+        osc.start();
+        osc.stop(now + 0.2);
+    }
+
 }
